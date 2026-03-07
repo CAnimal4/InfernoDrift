@@ -46,8 +46,6 @@ const spoilerSelect = document.getElementById("spoiler-select");
 const glowSelect = document.getElementById("glow-select");
 const customStats = document.getElementById("custom-stats");
 const customHint = document.getElementById("custom-hint");
-const customPreviewStage = document.getElementById("custom-preview-stage");
-const customPreviewBadge = document.getElementById("custom-preview-badge");
 const touchControlsRoot = document.getElementById("touch-controls");
 const touchSteerPad = document.getElementById("touch-steer-pad");
 const touchSteerKnob = document.getElementById("touch-steer-knob");
@@ -487,8 +485,6 @@ const customization = {
   ...DEFAULT_CUSTOMIZATION
 };
 
-let activeMenuTab = "settings";
-
 const state = {
   running: false,
   worldIndex: 0,
@@ -524,11 +520,7 @@ const state = {
   minimapHeading: 0,
   minimapDebugTimer: 0,
   noBotsRecoveryTimer: 0,
-  playerLoadoutStats: null,
-  previewMode: false,
-  previewSpin: 0,
-  previewDragActive: false,
-  previewDragX: 0
+  playerLoadoutStats: null
 };
 
 function clampWorldIndex(index) {
@@ -1287,23 +1279,8 @@ function isMenuOpen() {
 
 function setMenuOpen(open) {
   menu.classList.toggle("show", open);
-  if (!open) {
-    state.previewMode = false;
-    state.previewDragActive = false;
-  } else if (activeMenuTab === "customize") {
-    state.previewMode = true;
-  }
   refreshCustomizationMenu();
   debugLog("menu", open ? "menu_open" : "menu_close");
-}
-
-function setActiveMenuTab(tabName) {
-  activeMenuTab = tabName;
-  tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabName));
-  tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === `tab-${tabName}`));
-  state.previewMode = isMenuOpen() && tabName === "customize";
-  state.previewDragActive = false;
-  refreshCustomizationMenu();
 }
 
 function clearWorld() {
@@ -1505,7 +1482,7 @@ function refreshCustomizationMenu() {
       <div class="custom-group-title">Appearance</div>
       <div class="custom-stat"><span class="label">Paint / Accent</span><strong>${stats.appearance.paintName} / ${stats.appearance.accentName}</strong><span>Window tint ${stats.appearance.tintName}</span></div>
       <div class="custom-stat"><span class="label">Rear Kit</span><strong>${stats.appearance.spoilerName}</strong><span>Underglow ${stats.appearance.glowName}</span></div>
-      <div class="custom-stat"><span class="label">Preview</span><strong>${state.previewMode ? "Active" : "Ready"}</strong><span>Open Customize to orbit and inspect the build.</span></div>
+      <div class="custom-stat"><span class="label">Build Focus</span><strong>${loadout.body.name}</strong><span>${loadout.style.name} handling with ${loadout.power.name}</span></div>
     </div>
   `;
   if (customHint) {
@@ -1525,7 +1502,6 @@ function refreshCustomizationMenu() {
         ? `${lockedCounts} loadout upgrades are still locked. Clear more worlds to unlock them.`
         : "All loadout parts unlocked. Mix bodies, wheels, handling, and powers freely.";
   }
-  if (customPreviewBadge) customPreviewBadge.textContent = state.previewMode ? "Preview Active" : "Showcase Camera";
 }
 
 function updatePowerups(dt) {
@@ -1979,16 +1955,6 @@ function updateBoostPads() {
 }
 
 function updateCamera(dt) {
-  if (state.previewMode) {
-    const previewHeading = player.heading + state.previewSpin;
-    const orbitDistance = 6.4;
-    const desired = player.position
-      .clone()
-      .add(new THREE.Vector3(Math.sin(previewHeading) * orbitDistance, 2.8, Math.cos(previewHeading) * orbitDistance));
-    camera.position.lerp(desired, dt * 4.2);
-    camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 0.95, 0)));
-    return;
-  }
   const cameraTarget = player.position.clone();
   const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(-CAMERA_BACK_DISTANCE);
   const desired = cameraTarget.clone().add(back).add(new THREE.Vector3(0, CAMERA_HEIGHT, 0));
@@ -2436,15 +2402,6 @@ function animate(now) {
     }
   } else {
     updateFx(dt);
-    if (state.previewMode) {
-      if (!state.previewDragActive) state.previewSpin += dt * 0.45;
-      player.heading += dt * 0.22;
-      player.moveHeading = player.heading;
-      player.group.rotation.y = player.heading;
-      if (player.underglow) {
-        player.underglow.material.opacity = 0.32 + Math.sin(now * 0.005) * 0.08;
-      }
-    }
   }
 
   updateCamera(dt);
@@ -2601,29 +2558,13 @@ menuClose.addEventListener("click", () => {
 
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    setActiveMenuTab(button.dataset.tab);
+    tabButtons.forEach((btn) => btn.classList.remove("active"));
+    tabPanels.forEach((panel) => panel.classList.remove("active"));
+    button.classList.add("active");
+    const target = document.getElementById(`tab-${button.dataset.tab}`);
+    if (target) target.classList.add("active");
   });
 });
-
-if (customPreviewStage) {
-  customPreviewStage.addEventListener("pointerdown", (event) => {
-    state.previewDragActive = true;
-    state.previewDragX = event.clientX;
-    customPreviewStage.setPointerCapture(event.pointerId);
-  });
-  customPreviewStage.addEventListener("pointermove", (event) => {
-    if (!state.previewDragActive) return;
-    const dx = event.clientX - state.previewDragX;
-    state.previewDragX = event.clientX;
-    state.previewSpin -= dx * 0.01;
-  });
-  const endPreviewDrag = () => {
-    state.previewDragActive = false;
-  };
-  customPreviewStage.addEventListener("pointerup", endPreviewDrag);
-  customPreviewStage.addEventListener("pointercancel", endPreviewDrag);
-  customPreviewStage.addEventListener("pointerleave", endPreviewDrag);
-}
 
 difficultySelect.addEventListener("change", (event) => {
   const previousDifficulty = settings.difficulty;
@@ -2749,7 +2690,6 @@ cameraToggle.checked = settings.cameraFocus;
 if (rampDensitySelect) rampDensitySelect.value = settings.rampDensity;
 if (touchModeToggle) touchModeToggle.checked = input.touchEnabled;
 touchControlsRoot.classList.toggle("enabled", input.touchEnabled);
-setActiveMenuTab(activeMenuTab);
 applyPlayerCustomization({ progress: getProgressSnapshot() });
 resetLevel();
 updateHud();

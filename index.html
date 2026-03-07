@@ -162,56 +162,51 @@
             </section>
             <section class="tab-panel" id="tab-customize">
               <div class="custom-layout">
-                <div class="preview-card" id="custom-preview-card">
-                  <div class="preview-title-row">
-                    <strong>Live Build Preview</strong>
-                    <span id="custom-preview-badge">Showcase Camera</span>
-                  </div>
-                  <p class="preview-copy">
-                    The main view switches into garage preview mode here. Drag in this panel to rotate your car.
-                  </p>
-                  <div class="preview-stage" id="custom-preview-stage">
-                    <div class="preview-ring"></div>
-                    <div class="preview-glow"></div>
+                <div class="custom-column">
+                  <div class="custom-section-title">Performance Build</div>
+                  <div class="custom-grid custom-grid-primary">
+                    <label class="field">
+                      <span>Body</span>
+                      <select id="body-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Wheels</span>
+                      <select id="wheel-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Driving Style</span>
+                      <select id="style-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Power</span>
+                      <select id="power-select"></select>
+                    </label>
                   </div>
                 </div>
-                <div class="custom-grid">
-                  <label class="field">
-                    <span>Body</span>
-                    <select id="body-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Wheels</span>
-                    <select id="wheel-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Driving Style</span>
-                    <select id="style-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Power</span>
-                    <select id="power-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Paint</span>
-                    <select id="paint-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Accent</span>
-                    <select id="accent-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Window Tint</span>
-                    <select id="tint-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Rear Kit</span>
-                    <select id="spoiler-select"></select>
-                  </label>
-                  <label class="field">
-                    <span>Underglow</span>
-                    <select id="glow-select"></select>
-                  </label>
+                <div class="custom-column">
+                  <div class="custom-section-title">Appearance</div>
+                  <div class="custom-grid custom-grid-secondary">
+                    <label class="field">
+                      <span>Paint</span>
+                      <select id="paint-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Accent</span>
+                      <select id="accent-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Window Tint</span>
+                      <select id="tint-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Rear Kit</span>
+                      <select id="spoiler-select"></select>
+                    </label>
+                    <label class="field field-full">
+                      <span>Underglow</span>
+                      <select id="glow-select"></select>
+                    </label>
+                  </div>
                 </div>
               </div>
               <div class="custom-stats" id="custom-stats"></div>
