@@ -34,7 +34,6 @@ const difficultySelect = document.getElementById("difficulty-select");
 const invertToggle = document.getElementById("invert-toggle");
 const cameraToggle = document.getElementById("camera-toggle");
 const rampDensitySelect = document.getElementById("ramp-density-select");
-const touchModeToggle = document.getElementById("touch-mode-toggle");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
 const bodySelect = document.getElementById("body-select");
@@ -144,10 +143,17 @@ const DEVICE_PROFILES = {
     type: "desktop",
     usesTouch: false,
     compactHud: false,
+    hudScale: 1,
+    overlayScale: 1,
     minimapSize: 180,
+    cameraDistanceMult: 1,
+    cameraHeightMult: 1,
     controlScale: 1,
+    touchStickSize: 132,
+    touchButtonSize: 1,
     touchSteerScale: 1,
     touchDeadzone: 0.08,
+    touchResponse: 0.18,
     botSpeedMult: 1,
     botReactionMult: 1,
     powerupRadiusMult: 1,
@@ -158,10 +164,17 @@ const DEVICE_PROFILES = {
     type: "tablet",
     usesTouch: true,
     compactHud: true,
+    hudScale: 0.96,
+    overlayScale: 0.96,
     minimapSize: 150,
+    cameraDistanceMult: 0.93,
+    cameraHeightMult: 0.94,
     controlScale: 1.03,
-    touchSteerScale: 0.94,
+    touchStickSize: 150,
+    touchButtonSize: 1.05,
+    touchSteerScale: 0.88,
     touchDeadzone: 0.06,
+    touchResponse: 0.14,
     botSpeedMult: 0.95,
     botReactionMult: 0.96,
     powerupRadiusMult: 1.12,
@@ -172,10 +185,17 @@ const DEVICE_PROFILES = {
     type: "phone",
     usesTouch: true,
     compactHud: true,
+    hudScale: 0.9,
+    overlayScale: 0.9,
     minimapSize: 116,
+    cameraDistanceMult: 0.78,
+    cameraHeightMult: 0.78,
     controlScale: 0.84,
-    touchSteerScale: 0.86,
-    touchDeadzone: 0.05,
+    touchStickSize: 118,
+    touchButtonSize: 0.94,
+    touchSteerScale: 0.78,
+    touchDeadzone: 0.045,
+    touchResponse: 0.11,
     botSpeedMult: 0.89,
     botReactionMult: 0.9,
     powerupRadiusMult: 1.22,
@@ -517,7 +537,8 @@ const input = {
   pointerStartX: 0,
   focusCamera: false,
   touchEnabled: false,
-  touchSteer: 0
+  touchSteer: 0,
+  touchSteerTarget: 0
 };
 
 const settings = {
@@ -525,8 +546,7 @@ const settings = {
   invertSteer: true,
   cameraFocus: false,
   rampDensity: "normal",
-  deviceMode: "auto",
-  touchControlMode: "auto"
+  deviceMode: "auto"
 };
 
 const customization = {
@@ -618,15 +638,21 @@ function applyDeviceProfile() {
   document.body.classList.add(`device-${resolvedType}`);
   document.documentElement.style.setProperty("--minimap-size", `${profile.minimapSize}px`);
   document.documentElement.style.setProperty("--touch-scale", String(profile.controlScale));
+  document.documentElement.style.setProperty("--touch-stick-size", `${profile.touchStickSize}px`);
+  document.documentElement.style.setProperty("--touch-button-size", String(profile.touchButtonSize));
+  document.documentElement.style.setProperty("--overlay-panel-scale", String(profile.overlayScale));
+  document.documentElement.style.setProperty("--hud-scale", String(profile.hudScale));
   setMinimapSize(profile.minimapSize);
-
-  if (settings.touchControlMode === "auto") {
-    input.touchEnabled = profile.usesTouch;
-  } else {
-    input.touchEnabled = settings.touchControlMode === "on";
-  }
+  input.touchEnabled = profile.usesTouch;
   touchControlsRoot.classList.toggle("enabled", input.touchEnabled);
-  if (touchModeToggle) touchModeToggle.checked = input.touchEnabled;
+  if (!input.touchEnabled) {
+    input.touchSteer = 0;
+    input.touchSteerTarget = 0;
+    input.drift = false;
+    input.boost = false;
+    input.throttle = false;
+    input.brake = false;
+  }
   if (deviceModeSelect) deviceModeSelect.value = settings.deviceMode;
   if (deviceModeActive) {
     const label = resolvedType.charAt(0).toUpperCase() + resolvedType.slice(1);
@@ -746,9 +772,7 @@ function savePersistentState() {
       invertSteer: settings.invertSteer,
       cameraFocus: settings.cameraFocus,
       rampDensity: settings.rampDensity,
-      touchEnabled: input.touchEnabled,
-      deviceMode: settings.deviceMode,
-      touchControlMode: settings.touchControlMode
+      deviceMode: settings.deviceMode
     },
     customization: {
       bodyId: customization.bodyId,
@@ -780,10 +804,7 @@ function loadPersistentState() {
       if (typeof data.settings.invertSteer === "boolean") settings.invertSteer = data.settings.invertSteer;
       if (typeof data.settings.cameraFocus === "boolean") settings.cameraFocus = data.settings.cameraFocus;
       if (typeof data.settings.rampDensity === "string") settings.rampDensity = data.settings.rampDensity;
-      if (typeof data.settings.touchEnabled === "boolean") input.touchEnabled = data.settings.touchEnabled;
       if (typeof data.settings.deviceMode === "string") settings.deviceMode = data.settings.deviceMode;
-      if (typeof data.settings.touchControlMode === "string") settings.touchControlMode = data.settings.touchControlMode;
-      else if (typeof data.settings.touchEnabled === "boolean") settings.touchControlMode = data.settings.touchEnabled ? "on" : "off";
     }
     if (data.customization && typeof data.customization === "object") {
       if (typeof data.customization.bodyId === "string") customization.bodyId = data.customization.bodyId;
@@ -1696,6 +1717,9 @@ function emitDrivingFx(dt, steer, driftActive, boostActive) {
 function updatePlayer(dt) {
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const deviceAssist = getDeviceAssistTuning();
+  if (input.touchEnabled) {
+    input.touchSteer += (input.touchSteerTarget - input.touchSteer) * Math.min(1, dt * 60 * deviceAssist.touchResponse);
+  }
   const inputSteer = getSteer() * (settings.invertSteer ? -1 : 1);
   const steerFilter = input.drift ? 5.2 : 8.2;
   state.steerSmoothed += (inputSteer - state.steerSmoothed) * dt * steerFilter;
@@ -2069,12 +2093,18 @@ function updateBoostPads() {
 }
 
 function updateCamera(dt) {
+  const deviceAssist = getDeviceAssistTuning();
   const cameraTarget = player.position.clone();
-  const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(-CAMERA_BACK_DISTANCE);
-  const desired = cameraTarget.clone().add(back).add(new THREE.Vector3(0, CAMERA_HEIGHT, 0));
+  const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(
+    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult
+  );
+  const desired = cameraTarget
+    .clone()
+    .add(back)
+    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult, 0));
 
   if (input.focusCamera || settings.cameraFocus) {
-    desired.add(new THREE.Vector3(0, 4, 0));
+    desired.add(new THREE.Vector3(0, 4 * deviceAssist.cameraHeightMult, 0));
   }
 
   camera.position.lerp(desired, dt * 3.2);
@@ -2339,7 +2369,7 @@ function handlePlayerHit(sourceBotId = -1) {
 
 function getSteer() {
   if (input.touchEnabled) {
-    return input.touchSteer * getDeviceAssistTuning().touchSteerScale;
+    return input.touchSteer;
   }
   if (input.pointerActive) {
     const delta = (input.pointerStartX - input.pointerX) / (window.innerWidth * 0.4);
@@ -2416,9 +2446,7 @@ function completeLevel() {
         invertSteer: settings.invertSteer,
         cameraFocus: settings.cameraFocus,
         rampDensity: settings.rampDensity,
-        touchEnabled: input.touchEnabled,
-        deviceMode: settings.deviceMode,
-        touchControlMode: settings.touchControlMode
+        deviceMode: settings.deviceMode
       },
       customization: {
         bodyId: customization.bodyId,
@@ -2599,19 +2627,21 @@ function updateTouchInput(clientX, clientY) {
   const knobX = nx * clampedDist;
   const knobY = ny * clampedDist;
   touchSteerKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
-  const rawSteer = THREE.MathUtils.clamp((knobX / radius) * deviceAssist.touchSteerScale, -1, 1);
-  input.touchSteer = Math.abs(rawSteer) < deviceAssist.touchDeadzone ? 0 : rawSteer;
-  input.throttle = ny < -0.1 || clampedDist > radius * 0.2;
-  input.brake = ny > 0.45;
+  const normalizedX = THREE.MathUtils.clamp(knobX / radius, -1, 1);
+  const curvedSteer = Math.sign(normalizedX) * Math.pow(Math.abs(normalizedX), 1.45);
+  input.touchSteerTarget =
+    Math.abs(curvedSteer) < deviceAssist.touchDeadzone ? 0 : THREE.MathUtils.clamp(curvedSteer * deviceAssist.touchSteerScale, -1, 1);
+  input.touchSteer += (input.touchSteerTarget - input.touchSteer) * THREE.MathUtils.clamp(deviceAssist.touchResponse, 0.08, 0.35);
+  input.throttle = clampedDist > radius * 0.14 || ny < -0.08;
+  input.brake = ny > 0.38 && clampedDist > radius * 0.28;
 }
 
 function resetTouchSteer() {
   input.touchSteer = 0;
+  input.touchSteerTarget = 0;
   touchSteerKnob.style.transform = "translate(0px, 0px)";
-  if (input.touchEnabled) {
-    input.throttle = false;
-    input.brake = false;
-  }
+  input.throttle = false;
+  input.brake = false;
 }
 
 function initTouchControls() {
@@ -2784,19 +2814,6 @@ if (spoilerSelect) {
 if (glowSelect) {
   glowSelect.addEventListener("change", (event) => {
     handleCustomizationChange(GLOW_OPTIONS, "glowId", DEFAULT_CUSTOMIZATION.glowId, event);
-  });
-}
-
-if (touchModeToggle) {
-  touchModeToggle.addEventListener("change", (event) => {
-    settings.touchControlMode = event.target.checked ? "on" : "off";
-    applyDeviceProfile();
-    if (!input.touchEnabled) {
-      resetTouchSteer();
-      input.drift = false;
-      input.boost = false;
-    }
-    savePersistentState();
   });
 }
 

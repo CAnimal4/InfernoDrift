@@ -18,10 +18,18 @@
   --minimap-top: calc(var(--status-top) + 36px);
   --minimap-size: 180px;
   --touch-scale: 1;
+  --touch-stick-size: 132px;
+  --touch-knob-size: 56px;
+  --touch-button-size: 1;
+  --touch-button-padding-y: 12px;
+  --touch-button-padding-x: 18px;
+  --touch-button-font-size: 0.9rem;
+  --hud-scale: 1;
   --hud-pill-padding-y: 7px;
   --hud-pill-padding-x: 10px;
   --hud-font-size: 0.9rem;
   --hud-label-size: 0.7rem;
+  --overlay-panel-scale: 1;
 }
 
 * {
@@ -59,6 +67,8 @@ canvas {
   text-align: left;
   z-index: 5;
   font-size: 0.9rem;
+  transform: scale(var(--hud-scale));
+  transform-origin: top left;
 }
 
 .hud .pill {
@@ -130,6 +140,11 @@ canvas {
 .overlay.show {
   opacity: 1;
   pointer-events: auto;
+}
+
+.overlay .panel {
+  transform: scale(var(--overlay-panel-scale));
+  transform-origin: center;
 }
 
 .panel {
@@ -495,12 +510,14 @@ button:hover {
 
 .touch-controls button {
   pointer-events: auto;
-  padding: 12px 18px;
-  font-size: 0.9rem;
+  padding: var(--touch-button-padding-y) var(--touch-button-padding-x);
+  font-size: var(--touch-button-font-size);
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--stroke);
   border-radius: 18px;
+  transform: scale(var(--touch-button-size));
+  transform-origin: bottom right;
 }
 
 .touch-controls .primary {
@@ -514,8 +531,8 @@ button:hover {
 }
 
 .touch-steer-pad {
-  width: 132px;
-  height: 132px;
+  width: var(--touch-stick-size);
+  height: var(--touch-stick-size);
   border-radius: 50%;
   border: 1px solid var(--stroke);
   background: radial-gradient(circle at 30% 30%, rgba(90, 155, 220, 0.28), rgba(10, 18, 30, 0.86));
@@ -527,10 +544,10 @@ button:hover {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 56px;
-  height: 56px;
-  margin-left: -28px;
-  margin-top: -28px;
+  width: var(--touch-knob-size);
+  height: var(--touch-knob-size);
+  margin-left: calc(var(--touch-knob-size) * -0.5);
+  margin-top: calc(var(--touch-knob-size) * -0.5);
   border-radius: 50%;
   background: linear-gradient(120deg, rgba(126, 233, 255, 0.92), rgba(255, 171, 92, 0.86));
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
@@ -550,6 +567,8 @@ button:hover {
   box-shadow: var(--glow);
   display: grid;
   gap: 8px;
+  transform: scale(var(--hud-scale));
+  transform-origin: top left;
 }
 
 .minimap-title {
@@ -574,10 +593,16 @@ body.device-tablet {
   --minimap-top: calc(var(--status-top) + 30px);
   --minimap-size: 150px;
   --touch-scale: 1.03;
+  --touch-stick-size: 150px;
+  --touch-knob-size: 62px;
+  --touch-button-padding-y: 14px;
+  --touch-button-padding-x: 20px;
+  --touch-button-font-size: 0.96rem;
   --hud-pill-padding-y: 6px;
   --hud-pill-padding-x: 9px;
   --hud-font-size: 0.87rem;
   --hud-label-size: 0.64rem;
+  --overlay-panel-scale: 0.96;
 }
 
 body.device-phone {
@@ -588,10 +613,16 @@ body.device-phone {
   --minimap-top: calc(var(--status-top) + 24px);
   --minimap-size: 116px;
   --touch-scale: 0.84;
+  --touch-stick-size: 118px;
+  --touch-knob-size: 50px;
+  --touch-button-padding-y: 10px;
+  --touch-button-padding-x: 14px;
+  --touch-button-font-size: 0.82rem;
   --hud-pill-padding-y: 5px;
   --hud-pill-padding-x: 8px;
   --hud-font-size: 0.81rem;
   --hud-label-size: 0.58rem;
+  --overlay-panel-scale: 0.9;
 }
 
 body.device-phone .hud {
@@ -620,7 +651,7 @@ body.device-phone .minimap-wrap {
 
 body.device-phone .menu-panel {
   max-width: min(94vw, 620px);
-  padding: 20px 18px;
+  padding: 16px 14px;
 }
 
 body.device-phone .custom-layout,
@@ -631,10 +662,28 @@ body.device-phone .custom-stats {
 
 body.device-tablet .menu-panel {
   max-width: min(92vw, 700px);
+  padding: 22px 20px;
 }
 
 body.device-tablet .custom-stats {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.device-phone .overlay .panel .subtitle {
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+
+body.device-phone h1 {
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+body.device-phone h2 {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+body.device-phone .cta-row {
+  gap: 8px;
 }
 
 .status {
@@ -644,6 +693,8 @@ body.device-tablet .custom-stats {
   display: flex;
   gap: 6px;
   z-index: 6;
+  transform: scale(var(--hud-scale));
+  transform-origin: top right;
 }
 
 .status .pill {
