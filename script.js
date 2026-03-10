@@ -1756,12 +1756,9 @@ function updatePlayer(dt) {
       player.speed -= Math.sign(player.speed) * (7.3 + speedRatio * 4.6) * dt;
     }
   } else {
-    const airControlAccel = accel * (boostActive ? 0.42 : 0.3);
+    const airControlAccel = accel;
     if (throttle) player.speed += airControlAccel * dt;
-    if (brake) player.speed -= airControlAccel * dt * 1.08;
-    if (!throttle && !brake) {
-      player.speed -= Math.sign(player.speed) * Math.min(Math.abs(player.speed), (0.2 + speedRatio * 0.12) * dt);
-    }
+    if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
   }
 
   const boostCap = boostActive ? loadoutStats.boostSpeedMult * (airborne ? 1.08 : 1) : 1;
@@ -2664,6 +2661,21 @@ function resetTouchSteer() {
   input.brake = false;
 }
 
+function bindPressAction(element, handler) {
+  if (!element) return;
+  let lastTouchActionAt = 0;
+  element.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "mouse") return;
+    event.preventDefault();
+    lastTouchActionAt = performance.now();
+    handler(event);
+  });
+  element.addEventListener("click", (event) => {
+    if (performance.now() - lastTouchActionAt < 450) return;
+    handler(event);
+  });
+}
+
 function initTouchControls() {
   if (!touchSteerPad) return;
   touchSteerPad.style.touchAction = "none";
@@ -2702,14 +2714,14 @@ function initTouchControls() {
   });
 }
 
-startBtn.addEventListener("click", () => startRun(true));
-tutorialBtn.addEventListener("click", () => {
+bindPressAction(startBtn, () => startRun(true));
+bindPressAction(tutorialBtn, () => {
   tips.style.display = tips.style.display === "none" ? "grid" : "none";
 });
-nextBtn.addEventListener("click", () => {
+bindPressAction(nextBtn, () => {
   dispatchGameAction("message-next");
 });
-retryBtn.addEventListener("click", () => {
+bindPressAction(retryBtn, () => {
   message.classList.remove("show");
   if (state.pendingAction === "retry") {
     dispatchGameAction("start");
@@ -2718,15 +2730,15 @@ retryBtn.addEventListener("click", () => {
   }
 });
 
-menuBtn.addEventListener("click", () => {
+bindPressAction(menuBtn, () => {
   setMenuOpen(true);
 });
-menuClose.addEventListener("click", () => {
+bindPressAction(menuClose, () => {
   setMenuOpen(false);
 });
 
 tabButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  bindPressAction(button, () => {
     tabButtons.forEach((btn) => btn.classList.remove("active"));
     tabPanels.forEach((panel) => panel.classList.remove("active"));
     button.classList.add("active");

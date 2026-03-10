@@ -451,6 +451,11 @@ button {
   letter-spacing: 0.08em;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .primary {
