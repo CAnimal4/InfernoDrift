@@ -1768,13 +1768,13 @@ function updatePlayer(dt) {
   player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult);
 
   const turnAssist = 0.78 + (1 - speedRatio) * 0.42;
-  const turnPower = player.turnRate * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.44 : 1);
+  const turnPower = player.turnRate * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.58 : 1);
   const direction = player.speed >= 0 ? 1 : -1;
-  const steerMultiplier = airborne ? loadoutStats.airTurnRate * 0.54 : 1;
+  const steerMultiplier = airborne ? loadoutStats.airTurnRate * 0.72 : 1;
   player.heading += steer * turnPower * dt * direction * steerMultiplier;
 
-  const grip = airborne ? 1.08 : drift ? player.driftGrip : player.normalGrip;
-  const slipAmount = airborne ? 0.042 : drift ? loadoutStats.driftSlip : loadoutStats.roadSlip;
+  const grip = airborne ? 1.22 : drift ? player.driftGrip : player.normalGrip;
+  const slipAmount = airborne ? 0.055 : drift ? loadoutStats.driftSlip : loadoutStats.roadSlip;
   player.moveHeading = THREE.MathUtils.lerp(player.moveHeading, player.heading, grip * dt);
 
   const forward = new THREE.Vector3(Math.sin(player.moveHeading), 0, Math.cos(player.moveHeading));
