@@ -108,6 +108,9 @@ const PLAYER_BOOST_SPEED_MULT = 1.32;
 const PLAYER_ACCEL_MULT = 1.12;
 const PAD_SPEED_BOOST_DURATION = 2.1;
 const PAD_SPEED_BOOST_MULT = 1.3;
+const AIRBORNE_SPEED_BONUS = 6.5;
+const AIRBORNE_BOOST_ACCEL_MULT = 1.14;
+const AIRBORNE_BOOST_CAP_MULT = 1.18;
 const SAVE_STORAGE_KEY = "infernoDrift3.save.v1";
 const DEFAULT_CUSTOMIZATION = {
   bodyId: "street",
@@ -171,7 +174,7 @@ const DEVICE_PROFILES = {
     cameraHeightMult: 0.94,
     controlScale: 1.03,
     touchStickSize: 150,
-    touchButtonSize: 1.05,
+    touchButtonSize: 1.18,
     touchSteerScale: 0.88,
     touchDeadzone: 0.06,
     touchResponse: 0.14,
@@ -1756,13 +1759,16 @@ function updatePlayer(dt) {
       player.speed -= Math.sign(player.speed) * (7.3 + speedRatio * 4.6) * dt;
     }
   } else {
-    const airControlAccel = accel;
+    const airControlAccel = accel * (boostActive ? AIRBORNE_BOOST_ACCEL_MULT : 1);
     if (throttle) player.speed += airControlAccel * dt;
     if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
   }
 
-  const boostCap = boostActive ? loadoutStats.boostSpeedMult * (airborne ? 1.08 : 1) : 1;
-  player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult);
+  const airborneTopSpeed = airborne ? player.maxSpeed + AIRBORNE_SPEED_BONUS : player.maxSpeed;
+  const boostCap = boostActive
+    ? loadoutStats.boostSpeedMult * (airborne ? AIRBORNE_BOOST_CAP_MULT : 1)
+    : 1;
+  player.speed = THREE.MathUtils.clamp(player.speed, -14, airborneTopSpeed * boostCap * padMult);
 
   const turnAssist = 0.78 + (1 - speedRatio) * 0.42;
   const turnPower = player.turnRate * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.58 : 1);
@@ -2643,6 +2649,7 @@ function updateTouchInput(clientX, clientY) {
   const ny = dist > 0 ? dy / dist : 0;
   const knobX = nx * clampedDist;
   const knobY = ny * clampedDist;
+  touchSteerPad.classList.add("active");
   touchSteerKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
   const normalizedX = THREE.MathUtils.clamp(knobX / radius, -1, 1);
   const curvedSteer = Math.sign(normalizedX) * Math.pow(Math.abs(normalizedX), 1.45);
@@ -2656,6 +2663,7 @@ function updateTouchInput(clientX, clientY) {
 function resetTouchSteer() {
   input.touchSteer = 0;
   input.touchSteerTarget = 0;
+  touchSteerPad.classList.remove("active");
   touchSteerKnob.style.transform = "translate(0px, 0px)";
   input.throttle = false;
   input.brake = false;
@@ -2681,11 +2689,13 @@ function initTouchControls() {
   touchSteerPad.style.touchAction = "none";
   touchSteerPad.addEventListener("pointerdown", (event) => {
     if (!input.touchEnabled) return;
+    event.preventDefault();
     touchSteerPad.setPointerCapture(event.pointerId);
     updateTouchInput(event.clientX, event.clientY);
   });
   touchSteerPad.addEventListener("pointermove", (event) => {
     if (!input.touchEnabled) return;
+    event.preventDefault();
     if (event.pressure === 0 && event.buttons === 0) return;
     updateTouchInput(event.clientX, event.clientY);
   });
