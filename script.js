@@ -108,6 +108,8 @@ const PLAYER_BOOST_SPEED_MULT = 1.32;
 const PLAYER_ACCEL_MULT = 1.12;
 const PAD_SPEED_BOOST_DURATION = 2.1;
 const PAD_SPEED_BOOST_MULT = 1.3;
+const AIRBORNE_CRUISE_MPH = 320;
+const AIRBORNE_BOOST_MPH = 348;
 const AIRBORNE_SPEED_BONUS = 6.5;
 const AIRBORNE_BOOST_ACCEL_MULT = 1.14;
 const AIRBORNE_BOOST_CAP_MULT = 1.18;
@@ -1768,7 +1770,14 @@ function updatePlayer(dt) {
   const boostCap = boostActive
     ? loadoutStats.boostSpeedMult * (airborne ? AIRBORNE_BOOST_CAP_MULT : 1)
     : 1;
-  player.speed = THREE.MathUtils.clamp(player.speed, -14, airborneTopSpeed * boostCap * padMult);
+  const airborneTargetSpeed = airborne
+    ? (boostActive ? AIRBORNE_BOOST_MPH : AIRBORNE_CRUISE_MPH) / SPEED_TO_MPH_MULT
+    : 0;
+  const speedCap = Math.max(airborneTopSpeed * boostCap * padMult, airborneTargetSpeed);
+  player.speed = THREE.MathUtils.clamp(player.speed, -14, speedCap);
+  if (airborne && player.speed > 0) {
+    player.speed = Math.max(player.speed, airborneTargetSpeed);
+  }
 
   const turnAssist = 0.78 + (1 - speedRatio) * 0.42;
   const turnPower = player.turnRate * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.58 : 1);
