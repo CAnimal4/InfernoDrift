@@ -36,6 +36,7 @@ const invertToggle = document.getElementById("invert-toggle");
 const cameraToggle = document.getElementById("camera-toggle");
 const rampDensitySelect = document.getElementById("ramp-density-select");
 const devModeToggle = document.getElementById("dev-mode-toggle");
+const devModeStatus = document.getElementById("dev-mode-status");
 const devModeHint = document.getElementById("dev-mode-hint");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
@@ -600,6 +601,7 @@ const state = {
   minimapHeading: 0,
   minimapDebugTimer: 0,
   noBotsRecoveryTimer: 0,
+  backflipQueueTimer: 0,
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
 };
@@ -868,6 +870,9 @@ function refreshDevModeUi() {
     devModeHint.textContent = settings.devMode
       ? "Dev Mode enabled. Press B in mid-air or use the Backflip touch button on phone/tablet."
       : "Dev Mode adds a mid-air backflip on B and a touch backflip button on phones/tablets.";
+  }
+  if (devModeStatus) {
+    devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
   }
 }
 
@@ -1572,6 +1577,7 @@ function resetLevel() {
   state.heat = 0;
   state.airTime = 0;
   state.wasAirborne = false;
+  state.backflipQueueTimer = 0;
   state.slowBotsTimer = 0;
   state.effectToast = "";
   state.effectToastTimer = 0;
@@ -1586,6 +1592,9 @@ function resetLevel() {
   state.minimapHeading = player.heading;
   state.minimapDebugTimer = 0;
   player.verticalVel = 0;
+  player.backflipActive = false;
+  player.backflipProgress = 0;
+  player.backflipRecovery = 0;
   player.lastRampTime = 0;
   player.prevPosition.copy(player.position);
   state.steerSmoothed = 0;
@@ -1808,11 +1817,15 @@ function applyAirborneSpeedRules(car, { boostActive = false, padMult = 1, topSpe
 
 function attemptBackflip() {
   if (!settings.devMode) return false;
-  if (!isCarAirborne(player) || player.backflipActive) {
-    setEffectToast("Backflip: Get Air");
+  if (player.backflipActive) return false;
+  const canFlipNow = player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08;
+  if (!canFlipNow) {
+    state.backflipQueueTimer = 0.35;
+    setEffectToast("Backflip Primed");
     return false;
   }
   player.triggerBackflip();
+  state.backflipQueueTimer = 0;
   player.verticalVel += 0.4;
   state.score += 30 * state.combo;
   setEffectToast("Backflip");
@@ -1839,6 +1852,12 @@ function updatePlayer(dt) {
   state.steerSmoothed += (inputSteer - state.steerSmoothed) * dt * steerFilter;
   const steer = state.steerSmoothed;
   const airborne = isCarAirborne(player);
+  if (state.backflipQueueTimer > 0) {
+    state.backflipQueueTimer = Math.max(0, state.backflipQueueTimer - dt);
+    if (!player.backflipActive && (player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08)) {
+      attemptBackflip();
+    }
+  }
   const throttle = input.throttle ? 1 : 0;
   const brake = input.brake ? 1 : 0;
   const drift = input.drift && !airborne;
@@ -2456,6 +2475,10 @@ function loseLife() {
   player.speed = 0;
   player.velocity.set(0, 0, 0);
   player.verticalVel = 0;
+  state.backflipQueueTimer = 0;
+  player.backflipActive = false;
+  player.backflipProgress = 0;
+  player.backflipRecovery = 0;
   player.heading = 0;
   player.moveHeading = 0;
   player.prevPosition.copy(player.position);
@@ -2701,6 +2724,7 @@ window.addEventListener("resize", () => {
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space") event.preventDefault();
+  if (event.code === "KeyB") event.preventDefault();
   if (event.code === "ArrowLeft" || event.code === "KeyA") input.left = true;
   if (event.code === "ArrowRight" || event.code === "KeyD") input.right = true;
   if (event.code === "ArrowUp" || event.code === "KeyW") input.throttle = true;
