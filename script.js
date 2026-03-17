@@ -23,6 +23,7 @@ const hudHearts = document.getElementById("hud-hearts");
 const hudCombo = document.getElementById("hud-combo");
 const touchDrift = document.getElementById("touch-drift");
 const touchBoost = document.getElementById("touch-boost");
+const touchBackflip = document.getElementById("touch-backflip");
 const minimapCanvas = document.getElementById("minimap");
 const minimapCtx = minimapCanvas ? minimapCanvas.getContext("2d") : null;
 const menu = document.getElementById("menu");
@@ -34,6 +35,8 @@ const difficultySelect = document.getElementById("difficulty-select");
 const invertToggle = document.getElementById("invert-toggle");
 const cameraToggle = document.getElementById("camera-toggle");
 const rampDensitySelect = document.getElementById("ramp-density-select");
+const devModeToggle = document.getElementById("dev-mode-toggle");
+const devModeHint = document.getElementById("dev-mode-hint");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
 const bodySelect = document.getElementById("body-select");
@@ -113,6 +116,9 @@ const AIRBORNE_BOOST_MPH = 348;
 const AIRBORNE_SPEED_BONUS = 6.5;
 const AIRBORNE_BOOST_ACCEL_MULT = 1.14;
 const AIRBORNE_BOOST_CAP_MULT = 1.18;
+const DEV_MODE_PASSWORD = "iIbelikesheesh";
+const BACKFLIP_DURATION = 0.78;
+const BACKFLIP_RECOVERY_DURATION = 0.3;
 const SAVE_STORAGE_KEY = "infernoDrift3.save.v1";
 const DEFAULT_CUSTOMIZATION = {
   bodyId: "street",
@@ -551,7 +557,8 @@ const settings = {
   invertSteer: true,
   cameraFocus: false,
   rampDensity: "normal",
-  deviceMode: "auto"
+  deviceMode: "auto",
+  devMode: false
 };
 
 const customization = {
@@ -596,6 +603,10 @@ const state = {
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
 };
+
+function isCarAirborne(car) {
+  return car.position.y > 0.18 || car.verticalVel > 0.3;
+}
 
 function clampWorldIndex(index) {
   return THREE.MathUtils.clamp(index, 0, worldData.length - 1);
@@ -664,6 +675,7 @@ function applyDeviceProfile() {
     input.throttle = false;
     input.brake = false;
   }
+  refreshDevModeUi();
   if (deviceModeSelect) deviceModeSelect.value = settings.deviceMode;
   if (deviceModeActive) {
     const label = resolvedType.charAt(0).toUpperCase() + resolvedType.slice(1);
@@ -787,7 +799,8 @@ function savePersistentState() {
       invertSteer: settings.invertSteer,
       cameraFocus: settings.cameraFocus,
       rampDensity: settings.rampDensity,
-      deviceMode: settings.deviceMode
+      deviceMode: settings.deviceMode,
+      devMode: settings.devMode
     },
     customization: {
       bodyId: customization.bodyId,
@@ -820,6 +833,7 @@ function loadPersistentState() {
       if (typeof data.settings.cameraFocus === "boolean") settings.cameraFocus = data.settings.cameraFocus;
       if (typeof data.settings.rampDensity === "string") settings.rampDensity = data.settings.rampDensity;
       if (typeof data.settings.deviceMode === "string") settings.deviceMode = data.settings.deviceMode;
+      if (typeof data.settings.devMode === "boolean") settings.devMode = data.settings.devMode;
     }
     if (data.customization && typeof data.customization === "object") {
       if (typeof data.customization.bodyId === "string") customization.bodyId = data.customization.bodyId;
@@ -840,6 +854,19 @@ function loadPersistentState() {
     clampCustomizationToUnlocks({ worldIndex: safeWorld, levelIndex: state.levelIndex });
   } catch (error) {
     debugLog("menu", "load_failed", error?.message || error);
+  }
+}
+
+function refreshDevModeUi() {
+  if (devModeToggle) devModeToggle.checked = settings.devMode;
+  touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
+  if (touchBackflip) {
+    touchBackflip.hidden = !(settings.devMode && input.touchEnabled);
+  }
+  if (devModeHint) {
+    devModeHint.textContent = settings.devMode
+      ? "Dev Mode enabled. Press B in mid-air or use the Backflip touch button on phone/tablet."
+      : "Dev Mode adds a mid-air backflip on B and a touch backflip button on phones/tablets.";
   }
 }
 
@@ -949,6 +976,9 @@ class Car {
     this.prevPosition = new THREE.Vector3();
     this.visualConfig = null;
     this.underglow = null;
+    this.backflipActive = false;
+    this.backflipProgress = 0;
+    this.backflipRecovery = 0;
 
     this.rebuildVisual({
       primary: color,
@@ -1083,7 +1113,32 @@ class Car {
     this.position.addScaledVector(this.velocity, dt);
     this.group.position.copy(this.position);
     this.group.rotation.y = this.heading;
+    if (this.backflipActive) {
+      this.backflipProgress = Math.min(1, this.backflipProgress + dt / BACKFLIP_DURATION);
+      const spinAngle = THREE.MathUtils.smootherstep(this.backflipProgress, 0, 1) * Math.PI * 2;
+      const flourish = Math.sin(this.backflipProgress * Math.PI) * 0.18;
+      this.visualRoot.rotation.x = -spinAngle - flourish;
+      this.visualRoot.rotation.z = Math.sin(this.backflipProgress * Math.PI * 2) * 0.06;
+      if (this.backflipProgress >= 1) {
+        this.backflipActive = false;
+        this.backflipRecovery = BACKFLIP_RECOVERY_DURATION;
+      }
+    } else if (this.backflipRecovery > 0) {
+      this.backflipRecovery = Math.max(0, this.backflipRecovery - dt);
+      const settle = this.backflipRecovery / BACKFLIP_RECOVERY_DURATION;
+      this.visualRoot.rotation.x = -settle * settle * 0.18;
+      this.visualRoot.rotation.z = settle * 0.04;
+    } else {
+      this.visualRoot.rotation.x = THREE.MathUtils.lerp(this.visualRoot.rotation.x, 0, Math.min(1, dt * 12));
+      this.visualRoot.rotation.z = THREE.MathUtils.lerp(this.visualRoot.rotation.z, 0, Math.min(1, dt * 12));
+    }
     this.updateWheels(this.speed * dt);
+  }
+
+  triggerBackflip() {
+    this.backflipActive = true;
+    this.backflipProgress = 0;
+    this.backflipRecovery = 0;
   }
 }
 
@@ -1422,6 +1477,7 @@ function isMenuOpen() {
 function setMenuOpen(open) {
   menu.classList.toggle("show", open);
   refreshCustomizationMenu();
+  refreshDevModeUi();
   debugLog("menu", open ? "menu_open" : "menu_close");
 }
 
@@ -1729,6 +1785,35 @@ function emitDrivingFx(dt, steer, driftActive, boostActive) {
   }
 }
 
+function applyAirborneSpeedRules(car, { boostActive = false, padMult = 1, topSpeed = car.maxSpeed, boostSpeedMult = 1 } = {}) {
+  const airborneTopSpeed = topSpeed + AIRBORNE_SPEED_BONUS;
+  const boostCap = boostActive ? boostSpeedMult * AIRBORNE_BOOST_CAP_MULT : 1;
+  const airborneTargetSpeed = (boostActive ? AIRBORNE_BOOST_MPH : AIRBORNE_CRUISE_MPH) / SPEED_TO_MPH_MULT;
+  const speedCap = Math.max(airborneTopSpeed * boostCap * padMult, airborneTargetSpeed);
+  car.speed = THREE.MathUtils.clamp(car.speed, -14, speedCap);
+  if (car.speed > 0) {
+    car.speed = Math.max(car.speed, airborneTargetSpeed);
+  }
+}
+
+function attemptBackflip() {
+  if (!settings.devMode || !isCarAirborne(player) || player.backflipActive) return false;
+  player.triggerBackflip();
+  player.verticalVel += 0.4;
+  state.score += 30 * state.combo;
+  setEffectToast("Backflip");
+  for (let i = 0; i < 7; i += 1) {
+    spawnFx(
+      player.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.7, 0.55 + Math.random() * 0.25, (Math.random() - 0.5) * 0.7)),
+      new THREE.Vector3((Math.random() - 0.5) * 1.8, 1.2 + Math.random() * 1.6, (Math.random() - 0.5) * 1.8),
+      0xffc76b,
+      0.6,
+      0.24
+    );
+  }
+  return true;
+}
+
 function updatePlayer(dt) {
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const deviceAssist = getDeviceAssistTuning();
@@ -1739,7 +1824,7 @@ function updatePlayer(dt) {
   const steerFilter = input.drift ? 5.2 : 8.2;
   state.steerSmoothed += (inputSteer - state.steerSmoothed) * dt * steerFilter;
   const steer = state.steerSmoothed;
-  const airborne = player.position.y > 0.18 || player.verticalVel > 0.3;
+  const airborne = isCarAirborne(player);
   const throttle = input.throttle ? 1 : 0;
   const brake = input.brake ? 1 : 0;
   const drift = input.drift && !airborne;
@@ -1766,17 +1851,16 @@ function updatePlayer(dt) {
     if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
   }
 
-  const airborneTopSpeed = airborne ? player.maxSpeed + AIRBORNE_SPEED_BONUS : player.maxSpeed;
-  const boostCap = boostActive
-    ? loadoutStats.boostSpeedMult * (airborne ? AIRBORNE_BOOST_CAP_MULT : 1)
-    : 1;
-  const airborneTargetSpeed = airborne
-    ? (boostActive ? AIRBORNE_BOOST_MPH : AIRBORNE_CRUISE_MPH) / SPEED_TO_MPH_MULT
-    : 0;
-  const speedCap = Math.max(airborneTopSpeed * boostCap * padMult, airborneTargetSpeed);
-  player.speed = THREE.MathUtils.clamp(player.speed, -14, speedCap);
-  if (airborne && player.speed > 0) {
-    player.speed = Math.max(player.speed, airborneTargetSpeed);
+  if (airborne) {
+    applyAirborneSpeedRules(player, {
+      boostActive,
+      padMult,
+      topSpeed: player.maxSpeed,
+      boostSpeedMult: loadoutStats.boostSpeedMult
+    });
+  } else {
+    const boostCap = boostActive ? loadoutStats.boostSpeedMult : 1;
+    player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult);
   }
 
   const turnAssist = 0.78 + (1 - speedRatio) * 0.42;
@@ -2033,6 +2117,13 @@ function updateBots(dt) {
     const roleCap =
       role === "cutoff" ? 1.2 : role === "left_flank" || role === "right_flank" ? 1.12 : role === "intercept" ? 1.08 : 1;
     bot.speed = Math.min(targetSpeed * speedBoost * roleCap, bot.maxSpeed + state.heat * 6.5 * profile.heatRamp);
+    if (isCarAirborne(bot)) {
+      applyAirborneSpeedRules(bot, {
+        boostActive: bot.aiBurstCooldown > 0,
+        topSpeed: bot.maxSpeed + state.heat * 6.5 * profile.heatRamp,
+        boostSpeedMult: 1.08
+      });
+    }
 
     const forward = tempVectorC.set(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
     bot.velocity.copy(forward).multiplyScalar(bot.speed);
@@ -2603,7 +2694,9 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "Space") input.drift = true;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") input.boost = true;
   if (event.code === "KeyC") input.focusCamera = true;
+  if (event.code === "KeyB") attemptBackflip();
   if (event.code === "KeyR") dispatchGameAction("restart-level");
+  if (event.code === "KeyM") setMenuOpen(true);
   if (event.code === "Enter") {
     if (overlay.classList.contains("show")) {
       dispatchGameAction("start");
@@ -2731,6 +2824,11 @@ function initTouchControls() {
   touchBoost.addEventListener("pointerleave", () => {
     if (input.touchEnabled) input.boost = false;
   });
+  if (touchBackflip) {
+    bindPressAction(touchBackflip, () => {
+      if (input.touchEnabled) attemptBackflip();
+    });
+  }
 }
 
 bindPressAction(startBtn, () => startRun(true));
@@ -2789,6 +2887,28 @@ if (rampDensitySelect) {
   rampDensitySelect.addEventListener("change", (event) => {
     settings.rampDensity = event.target.value;
     buildWorld();
+    savePersistentState();
+  });
+}
+
+if (devModeToggle) {
+  devModeToggle.addEventListener("change", (event) => {
+    const wantsDevMode = event.target.checked;
+    if (wantsDevMode) {
+      const password = window.prompt("Enter Dev Mode password");
+      if (password !== DEV_MODE_PASSWORD) {
+        settings.devMode = false;
+        refreshDevModeUi();
+        setEffectToast("Dev Mode Locked");
+        return;
+      }
+      settings.devMode = true;
+      setEffectToast("Dev Mode Enabled");
+    } else {
+      settings.devMode = false;
+      setEffectToast("Dev Mode Disabled");
+    }
+    refreshDevModeUi();
     savePersistentState();
   });
 }
@@ -2883,7 +3003,9 @@ difficultySelect.value = settings.difficulty;
 invertToggle.checked = settings.invertSteer;
 cameraToggle.checked = settings.cameraFocus;
 if (rampDensitySelect) rampDensitySelect.value = settings.rampDensity;
+if (devModeToggle) devModeToggle.checked = settings.devMode;
 applyDeviceProfile();
+refreshDevModeUi();
 applyPlayerCustomization({ progress: getProgressSnapshot() });
 resetLevel();
 updateHud();

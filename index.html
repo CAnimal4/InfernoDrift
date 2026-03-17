@@ -71,6 +71,7 @@
         <div class="touch-buttons">
           <button id="touch-drift">Drift</button>
           <button id="touch-boost" class="primary">Boost</button>
+          <button id="touch-backflip" class="ghost">Backflip</button>
         </div>
       </div>
 
@@ -164,6 +165,11 @@
                   <option value="extra_high">Extra High</option>
                 </select>
               </label>
+              <label class="field toggle">
+                <span>Dev Mode</span>
+                <input id="dev-mode-toggle" type="checkbox" />
+              </label>
+              <p class="hint" id="dev-mode-hint">Dev Mode adds a mid-air backflip on `B` and a touch backflip button on phones/tablets.</p>
               <p class="hint">Changes apply instantly. Press R to restart the current level.</p>
             </section>
             <section class="tab-panel" id="tab-customize">
