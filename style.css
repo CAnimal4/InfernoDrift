@@ -540,6 +540,11 @@ button:hover {
   box-shadow: 0 10px 30px rgba(32, 212, 255, 0.4);
 }
 
+.touch-controls .ghost {
+  background: rgba(255, 184, 96, 0.16);
+  border-color: rgba(255, 184, 96, 0.34);
+}
+
 .touch-stick-wrap {
   pointer-events: auto;
   transform: translate(var(--touch-stick-offset-x), var(--touch-stick-offset-y));
@@ -598,6 +603,11 @@ button:hover {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+body.dev-mode-enabled #menu-btn,
+body.dev-mode-enabled #dev-mode-hint {
+  box-shadow: 0 0 18px rgba(255, 184, 96, 0.22);
 }
 
 .minimap-title {

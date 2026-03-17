@@ -859,6 +859,7 @@ function loadPersistentState() {
 
 function refreshDevModeUi() {
   if (devModeToggle) devModeToggle.checked = settings.devMode;
+  document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
   if (touchBackflip) {
     touchBackflip.hidden = !(settings.devMode && input.touchEnabled);
@@ -868,6 +869,15 @@ function refreshDevModeUi() {
       ? "Dev Mode enabled. Press B in mid-air or use the Backflip touch button on phone/tablet."
       : "Dev Mode adds a mid-air backflip on B and a touch backflip button on phones/tablets.";
   }
+}
+
+function setDevMode(enabled, { save = true, announce = true } = {}) {
+  settings.devMode = enabled;
+  refreshDevModeUi();
+  if (announce) {
+    setEffectToast(enabled ? "Dev Mode Enabled" : "Dev Mode Disabled");
+  }
+  if (save) savePersistentState();
 }
 
 function getNextProgressIndices() {
@@ -1797,7 +1807,11 @@ function applyAirborneSpeedRules(car, { boostActive = false, padMult = 1, topSpe
 }
 
 function attemptBackflip() {
-  if (!settings.devMode || !isCarAirborne(player) || player.backflipActive) return false;
+  if (!settings.devMode) return false;
+  if (!isCarAirborne(player) || player.backflipActive) {
+    setEffectToast("Backflip: Get Air");
+    return false;
+  }
   player.triggerBackflip();
   player.verticalVel += 0.4;
   state.score += 30 * state.combo;
@@ -2892,24 +2906,30 @@ if (rampDensitySelect) {
 }
 
 if (devModeToggle) {
-  devModeToggle.addEventListener("change", (event) => {
-    const wantsDevMode = event.target.checked;
+  const handleDevModeToggle = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const wantsDevMode = !settings.devMode;
     if (wantsDevMode) {
       const password = window.prompt("Enter Dev Mode password");
       if ((password ?? "").trim().toLowerCase() !== DEV_MODE_PASSWORD) {
-        settings.devMode = false;
-        refreshDevModeUi();
+        setDevMode(false, { save: false, announce: false });
         setEffectToast("Dev Mode Locked");
         return;
       }
-      settings.devMode = true;
-      setEffectToast("Dev Mode Enabled");
+      setDevMode(true);
     } else {
-      settings.devMode = false;
-      setEffectToast("Dev Mode Disabled");
+      setDevMode(false);
     }
+    window.setTimeout(refreshDevModeUi, 0);
+  };
+  devModeToggle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+  });
+  devModeToggle.addEventListener("click", handleDevModeToggle);
+  devModeToggle.addEventListener("change", (event) => {
+    event.preventDefault();
     refreshDevModeUi();
-    savePersistentState();
   });
 }
 
