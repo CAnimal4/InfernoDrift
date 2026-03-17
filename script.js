@@ -21,6 +21,7 @@ const hudSpeed = document.getElementById("hud-speed");
 const hudLives = document.getElementById("hud-lives");
 const hudHearts = document.getElementById("hud-hearts");
 const hudCombo = document.getElementById("hud-combo");
+const touchJump = document.getElementById("touch-jump");
 const touchDrift = document.getElementById("touch-drift");
 const touchBoost = document.getElementById("touch-boost");
 const touchBackflip = document.getElementById("touch-backflip");
@@ -863,13 +864,16 @@ function refreshDevModeUi() {
   if (devModeToggle) devModeToggle.checked = settings.devMode;
   document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
+  if (touchJump) {
+    touchJump.hidden = !(settings.devMode && input.touchEnabled);
+  }
   if (touchBackflip) {
     touchBackflip.hidden = !(settings.devMode && input.touchEnabled);
   }
   if (devModeHint) {
     devModeHint.textContent = settings.devMode
-      ? "Dev Mode enabled. Press B in mid-air or use the Backflip touch button on phone/tablet."
-      : "Dev Mode adds a mid-air backflip on B and a touch backflip button on phones/tablets.";
+      ? "Dev Mode enabled. Press J to hop, B to backflip mid-air, or use Jump/Backflip touch buttons on phone/tablet."
+      : "Dev Mode adds a hop on J, a mid-air backflip on B, and touch Jump/Backflip buttons on phones/tablets.";
   }
   if (devModeStatus) {
     devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
@@ -1841,6 +1845,24 @@ function attemptBackflip() {
   return true;
 }
 
+function attemptDevJump() {
+  if (!settings.devMode || isCarAirborne(player) || player.backflipActive) return false;
+  player.verticalVel = Math.max(player.verticalVel, 6.8);
+  player.position.y = Math.max(player.position.y, 0.06);
+  state.backflipQueueTimer = 0;
+  setEffectToast("Dev Jump");
+  for (let i = 0; i < 5; i += 1) {
+    spawnFx(
+      player.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.18, (Math.random() - 0.5) * 0.8)),
+      new THREE.Vector3((Math.random() - 0.5) * 1.4, 1.0 + Math.random() * 0.8, (Math.random() - 0.5) * 1.4),
+      0x8bd8ff,
+      0.5,
+      0.18
+    );
+  }
+  return true;
+}
+
 function updatePlayer(dt) {
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const deviceAssist = getDeviceAssistTuning();
@@ -2725,6 +2747,7 @@ window.addEventListener("resize", () => {
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space") event.preventDefault();
   if (event.code === "KeyB") event.preventDefault();
+  if (event.code === "KeyJ") event.preventDefault();
   if (event.code === "ArrowLeft" || event.code === "KeyA") input.left = true;
   if (event.code === "ArrowRight" || event.code === "KeyD") input.right = true;
   if (event.code === "ArrowUp" || event.code === "KeyW") input.throttle = true;
@@ -2732,6 +2755,7 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "Space") input.drift = true;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") input.boost = true;
   if (event.code === "KeyC") input.focusCamera = true;
+  if (event.code === "KeyJ") attemptDevJump();
   if (event.code === "KeyB") attemptBackflip();
   if (event.code === "KeyR") dispatchGameAction("restart-level");
   if (event.code === "KeyM") setMenuOpen(true);
@@ -2862,6 +2886,11 @@ function initTouchControls() {
   touchBoost.addEventListener("pointerleave", () => {
     if (input.touchEnabled) input.boost = false;
   });
+  if (touchJump) {
+    bindPressAction(touchJump, () => {
+      if (input.touchEnabled) attemptDevJump();
+    });
+  }
   if (touchBackflip) {
     bindPressAction(touchBackflip, () => {
       if (input.touchEnabled) attemptBackflip();
