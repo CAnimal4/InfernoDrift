@@ -116,7 +116,7 @@ const AIRBORNE_BOOST_MPH = 348;
 const AIRBORNE_SPEED_BONUS = 6.5;
 const AIRBORNE_BOOST_ACCEL_MULT = 1.14;
 const AIRBORNE_BOOST_CAP_MULT = 1.18;
-const DEV_MODE_PASSWORD = "iIbelikesheesh";
+const DEV_MODE_PASSWORD = "ibelikesheesh";
 const BACKFLIP_DURATION = 0.78;
 const BACKFLIP_RECOVERY_DURATION = 0.3;
 const SAVE_STORAGE_KEY = "infernoDrift3.save.v1";
@@ -2896,7 +2896,7 @@ if (devModeToggle) {
     const wantsDevMode = event.target.checked;
     if (wantsDevMode) {
       const password = window.prompt("Enter Dev Mode password");
-      if (password !== DEV_MODE_PASSWORD) {
+      if ((password ?? "").trim().toLowerCase() !== DEV_MODE_PASSWORD) {
         settings.devMode = false;
         refreshDevModeUi();
         setEffectToast("Dev Mode Locked");
