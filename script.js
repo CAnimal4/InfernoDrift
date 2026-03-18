@@ -606,6 +606,7 @@ const state = {
   backflipQueueTimer: 0,
   devJumpComboTimer: 0,
   devJumpActive: false,
+  devJumpCarrySpeed: 0,
   backflipChainCount: 0,
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
@@ -1589,6 +1590,7 @@ function resetLevel() {
   state.backflipQueueTimer = 0;
   state.devJumpComboTimer = 0;
   state.devJumpActive = false;
+  state.devJumpCarrySpeed = 0;
   state.backflipChainCount = 0;
   state.slowBotsTimer = 0;
   state.effectToast = "";
@@ -1840,7 +1842,6 @@ function attemptBackflip() {
   player.triggerBackflip();
   state.backflipQueueTimer = 0;
   state.backflipChainCount += 1;
-  player.verticalVel = Math.min(player.verticalVel - 0.6, -1.4);
   state.score += 30 * state.combo;
   setEffectToast("Backflip");
   for (let i = 0; i < 7; i += 1) {
@@ -1861,6 +1862,7 @@ function attemptDevJump() {
   player.position.y = 0.24;
   state.devJumpComboTimer = 0.8;
   state.devJumpActive = true;
+  state.devJumpCarrySpeed = player.speed;
   state.backflipChainCount = 0;
   state.backflipQueueTimer = 0;
   setEffectToast("Dev Jump");
@@ -1923,8 +1925,12 @@ function updatePlayer(dt) {
     }
   } else {
     const airControlAccel = accel * (boostActive ? AIRBORNE_BOOST_ACCEL_MULT : 1);
-    if (throttle) player.speed += airControlAccel * dt;
-    if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
+    if (state.devJumpActive) {
+      player.speed = state.devJumpCarrySpeed;
+    } else {
+      if (throttle) player.speed += airControlAccel * dt;
+      if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
+    }
   }
 
   if (airborne && !state.devJumpActive) {
@@ -2540,6 +2546,7 @@ function loseLife() {
   state.backflipQueueTimer = 0;
   state.devJumpComboTimer = 0;
   state.devJumpActive = false;
+  state.devJumpCarrySpeed = 0;
   state.backflipChainCount = 0;
   player.backflipActive = false;
   player.backflipProgress = 0;
