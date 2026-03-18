@@ -549,6 +549,7 @@ const input = {
   pointerX: 0,
   pointerStartX: 0,
   focusCamera: false,
+  backflip: false,
   touchEnabled: false,
   touchSteer: 0,
   touchSteerTarget: 0
@@ -604,6 +605,8 @@ const state = {
   noBotsRecoveryTimer: 0,
   backflipQueueTimer: 0,
   devJumpComboTimer: 0,
+  devJumpActive: false,
+  backflipChainCount: 0,
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
 };
@@ -1584,6 +1587,8 @@ function resetLevel() {
   state.wasAirborne = false;
   state.backflipQueueTimer = 0;
   state.devJumpComboTimer = 0;
+  state.devJumpActive = false;
+  state.backflipChainCount = 0;
   state.slowBotsTimer = 0;
   state.effectToast = "";
   state.effectToastTimer = 0;
@@ -1603,6 +1608,7 @@ function resetLevel() {
   player.backflipRecovery = 0;
   player.lastRampTime = 0;
   player.prevPosition.copy(player.position);
+  input.backflip = false;
   state.steerSmoothed = 0;
   state.lastHitAt = 0;
   state.lastHitByBotId = -1;
@@ -1832,6 +1838,7 @@ function attemptBackflip() {
   }
   player.triggerBackflip();
   state.backflipQueueTimer = 0;
+  state.backflipChainCount += 1;
   player.verticalVel += 0.4;
   state.score += 30 * state.combo;
   setEffectToast("Backflip");
@@ -1852,6 +1859,8 @@ function attemptDevJump() {
   player.verticalVel = Math.max(player.verticalVel, 9.8);
   player.position.y = Math.max(player.position.y, 0.16);
   state.devJumpComboTimer = 0.8;
+  state.devJumpActive = true;
+  state.backflipChainCount = 0;
   state.backflipQueueTimer = 0;
   setEffectToast("Dev Jump");
   for (let i = 0; i < 5; i += 1) {
@@ -1886,6 +1895,9 @@ function updatePlayer(dt) {
       attemptBackflip();
     }
   }
+  if (settings.devMode && input.backflip && airborne && !player.backflipActive) {
+    attemptBackflip();
+  }
   const throttle = input.throttle ? 1 : 0;
   const brake = input.brake ? 1 : 0;
   const drift = input.drift && !airborne;
@@ -1912,7 +1924,7 @@ function updatePlayer(dt) {
     if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
   }
 
-  if (airborne) {
+  if (airborne && !state.devJumpActive) {
     applyAirborneSpeedRules(player, {
       boostActive,
       padMult,
@@ -1981,8 +1993,24 @@ function updateVerticalPhysics(car, dt) {
           state.score += Math.round(120 * bonus);
           state.boost = Math.min(1, state.boost + bonus * (0.15 + (loadoutStats?.landingBoost ?? 0)));
         }
+        if (state.backflipChainCount > 0) {
+          const landingBoost = 9 + (state.backflipChainCount - 1) * 4;
+          player.speed = Math.min(player.maxSpeed * 1.18, player.speed + landingBoost);
+          setEffectToast(state.backflipChainCount > 1 ? `Flip x${state.backflipChainCount} Boost` : "Flip Boost");
+          for (let i = 0; i < 10; i += 1) {
+            spawnFx(
+              player.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.2, 0.16 + Math.random() * 0.14, (Math.random() - 0.5) * 1.2)),
+              new THREE.Vector3((Math.random() - 0.5) * 2.4, 1.8 + Math.random() * 1.2, (Math.random() - 0.5) * 2.4),
+              0xffd37a,
+              0.72,
+              0.28
+            );
+          }
+        }
         state.airTime = 0;
         state.wasAirborne = false;
+        state.devJumpActive = false;
+        state.backflipChainCount = 0;
       }
     } else if (!car.isBot) {
       state.airTime += stepDt;
@@ -2505,12 +2533,15 @@ function loseLife() {
   player.verticalVel = 0;
   state.backflipQueueTimer = 0;
   state.devJumpComboTimer = 0;
+  state.devJumpActive = false;
+  state.backflipChainCount = 0;
   player.backflipActive = false;
   player.backflipProgress = 0;
   player.backflipRecovery = 0;
   player.heading = 0;
   player.moveHeading = 0;
   player.prevPosition.copy(player.position);
+  input.backflip = false;
 }
 
 function handlePlayerHit(sourceBotId = -1) {
@@ -2762,6 +2793,7 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "ArrowDown" || event.code === "KeyS") input.brake = true;
   if (event.code === "Space") input.drift = true;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") input.boost = true;
+  if (event.code === "KeyB") input.backflip = true;
   if (event.code === "KeyC") input.focusCamera = true;
   if (event.code === "KeyJ") attemptDevJump();
   if (event.code === "KeyB") attemptBackflip();
@@ -2788,6 +2820,7 @@ window.addEventListener("keyup", (event) => {
   if (event.code === "ArrowDown" || event.code === "KeyS") input.brake = false;
   if (event.code === "Space") input.drift = false;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") input.boost = false;
+  if (event.code === "KeyB") input.backflip = false;
   if (event.code === "KeyC") input.focusCamera = false;
   debugLog("input", "keyup", event.code);
 });
@@ -2900,9 +2933,17 @@ function initTouchControls() {
     });
   }
   if (touchBackflip) {
-    bindPressAction(touchBackflip, () => {
-      if (input.touchEnabled) attemptBackflip();
+    touchBackflip.addEventListener("pointerdown", () => {
+      if (!input.touchEnabled) return;
+      input.backflip = true;
+      attemptBackflip();
     });
+    const clearBackflip = () => {
+      input.backflip = false;
+    };
+    touchBackflip.addEventListener("pointerup", clearBackflip);
+    touchBackflip.addEventListener("pointercancel", clearBackflip);
+    touchBackflip.addEventListener("pointerleave", clearBackflip);
   }
 }
 
