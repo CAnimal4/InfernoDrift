@@ -1138,13 +1138,12 @@ class Car {
     this.group.rotation.y = this.heading;
     if (this.backflipActive) {
       this.backflipProgress = Math.min(1, this.backflipProgress + dt / BACKFLIP_DURATION);
-      const spinAngle = THREE.MathUtils.smootherstep(this.backflipProgress, 0, 1) * Math.PI * 2;
-      const flourish = Math.sin(this.backflipProgress * Math.PI) * 0.18;
-      this.visualRoot.rotation.x = -spinAngle - flourish;
-      this.visualRoot.rotation.z = Math.sin(this.backflipProgress * Math.PI * 2) * 0.06;
+      const spinAngle = this.backflipProgress * Math.PI * 2;
+      this.visualRoot.rotation.x = -spinAngle;
+      this.visualRoot.rotation.z = Math.sin(this.backflipProgress * Math.PI * 2) * 0.035;
       if (this.backflipProgress >= 1) {
         this.backflipActive = false;
-        this.backflipRecovery = BACKFLIP_RECOVERY_DURATION;
+        this.backflipRecovery = input.backflip && this.position.y > 0.08 ? 0 : BACKFLIP_RECOVERY_DURATION;
       }
     } else if (this.backflipRecovery > 0) {
       this.backflipRecovery = Math.max(0, this.backflipRecovery - dt);
@@ -1162,6 +1161,8 @@ class Car {
     this.backflipActive = true;
     this.backflipProgress = 0;
     this.backflipRecovery = 0;
+    this.visualRoot.rotation.x = 0;
+    this.visualRoot.rotation.z = 0;
   }
 }
 
@@ -1829,7 +1830,7 @@ function applyAirborneSpeedRules(car, { boostActive = false, padMult = 1, topSpe
 
 function attemptBackflip() {
   if (!settings.devMode) return false;
-  if (player.backflipActive && player.backflipProgress < 0.82) return false;
+  if (player.backflipActive && player.backflipProgress < 0.68) return false;
   const canFlipNow = player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08;
   if (!canFlipNow) {
     state.backflipQueueTimer = state.devJumpComboTimer > 0 ? 0.75 : 0.35;
@@ -1837,11 +1838,9 @@ function attemptBackflip() {
     return false;
   }
   player.triggerBackflip();
-  player.visualRoot.rotation.x = 0;
-  player.visualRoot.rotation.z = 0;
   state.backflipQueueTimer = 0;
   state.backflipChainCount += 1;
-  player.verticalVel = Math.max(player.verticalVel, 5.8);
+  player.verticalVel = Math.max(player.verticalVel, 1.6);
   state.score += 30 * state.combo;
   setEffectToast("Backflip");
   for (let i = 0; i < 7; i += 1) {
@@ -1998,9 +1997,11 @@ function updateVerticalPhysics(car, dt) {
           state.boost = Math.min(1, state.boost + bonus * (0.15 + (loadoutStats?.landingBoost ?? 0)));
         }
         if (state.backflipChainCount > 0) {
-          const landingBoost = 18 + (state.backflipChainCount - 1) * 8;
-          player.speed = Math.min(player.maxSpeed * 1.3, player.speed + landingBoost);
-          state.boost = Math.min(1, state.boost + 0.18 + state.backflipChainCount * 0.04);
+          const landingBoost = 26 + (state.backflipChainCount - 1) * 11;
+          player.speed = Math.min(player.maxSpeed * 1.46, player.speed + landingBoost);
+          state.boost = Math.min(1, state.boost + 0.28 + state.backflipChainCount * 0.06);
+          state.padSpeedTimer = Math.max(state.padSpeedTimer, 1.7 + state.backflipChainCount * 0.25);
+          state.padSpeedMult = Math.max(state.padSpeedMult, 1.34 + state.backflipChainCount * 0.05);
           setEffectToast(state.backflipChainCount > 1 ? `Flip x${state.backflipChainCount} Boost` : "Flip Boost");
           for (let i = 0; i < 16; i += 1) {
             spawnFx(
