@@ -1926,14 +1926,21 @@ function updatePlayer(dt) {
   } else {
     const airControlAccel = accel * (boostActive ? AIRBORNE_BOOST_ACCEL_MULT : 1);
     if (state.devJumpActive) {
-      player.speed = state.devJumpCarrySpeed;
+      player.speed = Math.max(player.speed, state.devJumpCarrySpeed);
+      if (boostActive) {
+        player.speed += airControlAccel * dt;
+      } else if (throttle) {
+        player.speed += airControlAccel * dt;
+      } else if (brake) {
+        player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
+      }
     } else {
       if (throttle) player.speed += airControlAccel * dt;
       if (brake) player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
     }
   }
 
-  if (airborne && !state.devJumpActive) {
+  if (airborne && (!state.devJumpActive || boostActive)) {
     applyAirborneSpeedRules(player, {
       boostActive,
       padMult,
