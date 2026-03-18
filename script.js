@@ -877,8 +877,8 @@ function refreshDevModeUi() {
   }
   if (devModeHint) {
     devModeHint.textContent = settings.devMode
-      ? "Dev Mode enabled. Press Z to jump, X to backflip mid-air, or use Jump/Backflip touch buttons on phone/tablet."
-      : "Dev Mode adds a jump on Z, a mid-air backflip on X, and touch Jump/Backflip buttons on phones/tablets.";
+      ? "Dev Mode enabled. Press X to jump, C to backflip mid-air, or use Jump/Backflip touch buttons on phone/tablet."
+      : "Dev Mode adds a jump on X, a mid-air backflip on C, and touch Jump/Backflip buttons on phones/tablets.";
   }
   if (devModeStatus) {
     devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
@@ -2805,17 +2805,17 @@ window.addEventListener("resize", () => {
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space") event.preventDefault();
+  if (event.code === "KeyC") event.preventDefault();
   if (event.code === "KeyX") event.preventDefault();
-  if (event.code === "KeyZ") event.preventDefault();
   if (event.code === "ArrowLeft" || event.code === "KeyA") input.left = true;
   if (event.code === "ArrowRight" || event.code === "KeyD") input.right = true;
   if (event.code === "ArrowUp" || event.code === "KeyW") input.throttle = true;
   if (event.code === "ArrowDown" || event.code === "KeyS") input.brake = true;
   if (event.code === "Space") input.drift = true;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") input.boost = true;
-  if (event.code === "KeyX") input.backflip = true;
-  if (event.code === "KeyZ") attemptDevJump();
-  if (event.code === "KeyX") attemptBackflip();
+  if (event.code === "KeyC") input.backflip = true;
+  if (event.code === "KeyX") attemptDevJump();
+  if (event.code === "KeyC") attemptBackflip();
   if (event.code === "KeyR") dispatchGameAction("restart-level");
   if (event.code === "KeyM") setMenuOpen(true);
   if (event.code === "Enter") {
@@ -2839,7 +2839,7 @@ window.addEventListener("keyup", (event) => {
   if (event.code === "ArrowDown" || event.code === "KeyS") input.brake = false;
   if (event.code === "Space") input.drift = false;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") input.boost = false;
-  if (event.code === "KeyX") input.backflip = false;
+  if (event.code === "KeyC") input.backflip = false;
   debugLog("input", "keyup", event.code);
 });
 
