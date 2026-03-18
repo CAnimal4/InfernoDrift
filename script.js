@@ -603,6 +603,7 @@ const state = {
   minimapDebugTimer: 0,
   noBotsRecoveryTimer: 0,
   backflipQueueTimer: 0,
+  devJumpComboTimer: 0,
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
 };
@@ -1582,6 +1583,7 @@ function resetLevel() {
   state.airTime = 0;
   state.wasAirborne = false;
   state.backflipQueueTimer = 0;
+  state.devJumpComboTimer = 0;
   state.slowBotsTimer = 0;
   state.effectToast = "";
   state.effectToastTimer = 0;
@@ -1824,7 +1826,7 @@ function attemptBackflip() {
   if (player.backflipActive) return false;
   const canFlipNow = player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08;
   if (!canFlipNow) {
-    state.backflipQueueTimer = 0.35;
+    state.backflipQueueTimer = state.devJumpComboTimer > 0 ? 0.75 : 0.35;
     setEffectToast("Backflip Primed");
     return false;
   }
@@ -1847,8 +1849,9 @@ function attemptBackflip() {
 
 function attemptDevJump() {
   if (!settings.devMode || isCarAirborne(player) || player.backflipActive) return false;
-  player.verticalVel = Math.max(player.verticalVel, 6.8);
-  player.position.y = Math.max(player.position.y, 0.06);
+  player.verticalVel = Math.max(player.verticalVel, 9.8);
+  player.position.y = Math.max(player.position.y, 0.16);
+  state.devJumpComboTimer = 0.8;
   state.backflipQueueTimer = 0;
   setEffectToast("Dev Jump");
   for (let i = 0; i < 5; i += 1) {
@@ -1874,6 +1877,9 @@ function updatePlayer(dt) {
   state.steerSmoothed += (inputSteer - state.steerSmoothed) * dt * steerFilter;
   const steer = state.steerSmoothed;
   const airborne = isCarAirborne(player);
+  if (state.devJumpComboTimer > 0) {
+    state.devJumpComboTimer = Math.max(0, state.devJumpComboTimer - dt);
+  }
   if (state.backflipQueueTimer > 0) {
     state.backflipQueueTimer = Math.max(0, state.backflipQueueTimer - dt);
     if (!player.backflipActive && (player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08)) {
@@ -2498,6 +2504,7 @@ function loseLife() {
   player.velocity.set(0, 0, 0);
   player.verticalVel = 0;
   state.backflipQueueTimer = 0;
+  state.devJumpComboTimer = 0;
   player.backflipActive = false;
   player.backflipProgress = 0;
   player.backflipRecovery = 0;
@@ -2610,6 +2617,7 @@ function showMessage(title, body, nextLabel = "Next", action = "next") {
   messageTitle.textContent = title;
   messageBody.textContent = body;
   nextBtn.textContent = nextLabel;
+  retryBtn.hidden = action === "retry";
   message.classList.add("show");
   state.running = false;
   state.pendingAction = action;
