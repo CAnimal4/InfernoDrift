@@ -1840,7 +1840,7 @@ function attemptBackflip() {
   player.triggerBackflip();
   state.backflipQueueTimer = 0;
   state.backflipChainCount += 1;
-  player.verticalVel = Math.max(player.verticalVel, 1.6);
+  player.verticalVel = Math.min(player.verticalVel, Math.max(0.15, player.verticalVel));
   state.score += 30 * state.combo;
   setEffectToast("Backflip");
   for (let i = 0; i < 7; i += 1) {
@@ -1997,19 +1997,19 @@ function updateVerticalPhysics(car, dt) {
           state.boost = Math.min(1, state.boost + bonus * (0.15 + (loadoutStats?.landingBoost ?? 0)));
         }
         if (state.backflipChainCount > 0) {
-          const landingBoost = 26 + (state.backflipChainCount - 1) * 11;
-          player.speed = Math.min(player.maxSpeed * 1.46, player.speed + landingBoost);
-          state.boost = Math.min(1, state.boost + 0.28 + state.backflipChainCount * 0.06);
-          state.padSpeedTimer = Math.max(state.padSpeedTimer, 1.7 + state.backflipChainCount * 0.25);
-          state.padSpeedMult = Math.max(state.padSpeedMult, 1.34 + state.backflipChainCount * 0.05);
+          const landingBoost = 38 + (state.backflipChainCount - 1) * 16;
+          player.speed = Math.min(player.maxSpeed * 1.72, player.speed + landingBoost);
+          state.boost = Math.min(1, state.boost + 0.4 + state.backflipChainCount * 0.08);
+          state.padSpeedTimer = Math.max(state.padSpeedTimer, 2.5 + state.backflipChainCount * 0.35);
+          state.padSpeedMult = Math.max(state.padSpeedMult, 1.52 + state.backflipChainCount * 0.08);
           setEffectToast(state.backflipChainCount > 1 ? `Flip x${state.backflipChainCount} Boost` : "Flip Boost");
-          for (let i = 0; i < 16; i += 1) {
+          for (let i = 0; i < 22; i += 1) {
             spawnFx(
               player.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.2, 0.16 + Math.random() * 0.14, (Math.random() - 0.5) * 1.2)),
-              new THREE.Vector3((Math.random() - 0.5) * 3.1, 2.1 + Math.random() * 1.5, (Math.random() - 0.5) * 3.1),
+              new THREE.Vector3((Math.random() - 0.5) * 4.2, 2.6 + Math.random() * 1.8, (Math.random() - 0.5) * 4.2),
               Math.random() < 0.5 ? 0xffd37a : 0x9fe7ff,
-              0.86,
-              0.34
+              0.98,
+              0.42
             );
           }
         }
