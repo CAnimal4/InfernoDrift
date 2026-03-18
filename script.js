@@ -1832,7 +1832,7 @@ function applyAirborneSpeedRules(car, { boostActive = false, padMult = 1, topSpe
 
 function attemptBackflip() {
   if (!settings.devMode) return false;
-  if (player.backflipActive && player.backflipProgress < 0.68) return false;
+  if (player.backflipActive && player.backflipProgress < 0.5) return false;
   const canFlipNow = player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08;
   if (!canFlipNow) {
     state.backflipQueueTimer = state.devJumpComboTimer > 0 ? 0.75 : 0.35;
@@ -1900,7 +1900,7 @@ function updatePlayer(dt) {
   }
   if (settings.devMode && input.backflip && airborne && !player.backflipActive) {
     attemptBackflip();
-  } else if (settings.devMode && input.backflip && airborne && player.backflipActive && player.backflipProgress > 0.82) {
+  } else if (settings.devMode && input.backflip && airborne && player.backflipActive && player.backflipProgress > 0.58) {
     attemptBackflip();
   }
   const throttle = input.throttle ? 1 : 0;
@@ -2003,11 +2003,11 @@ function updateVerticalPhysics(car, dt) {
           state.boost = Math.min(1, state.boost + bonus * (0.15 + (loadoutStats?.landingBoost ?? 0)));
         }
         if (state.backflipChainCount > 0) {
-          const landingBoost = 56 + (state.backflipChainCount - 1) * 22;
-          player.speed = Math.min(player.maxSpeed * 1.95, player.speed + landingBoost);
-          state.boost = Math.min(1, state.boost + 0.58 + state.backflipChainCount * 0.1);
-          state.padSpeedTimer = Math.max(state.padSpeedTimer, 3.6 + state.backflipChainCount * 0.45);
-          state.padSpeedMult = Math.max(state.padSpeedMult, 1.78 + state.backflipChainCount * 0.1);
+          const landingBoost = 34 + (state.backflipChainCount - 1) * 14;
+          player.speed = Math.min(player.maxSpeed * 1.52, player.speed + landingBoost);
+          state.boost = Math.min(1, state.boost + 0.34 + state.backflipChainCount * 0.06);
+          state.padSpeedTimer = Math.max(state.padSpeedTimer, 2.2 + state.backflipChainCount * 0.28);
+          state.padSpeedMult = Math.max(state.padSpeedMult, 1.42 + state.backflipChainCount * 0.06);
           setEffectToast(state.backflipChainCount > 1 ? `Flip x${state.backflipChainCount} Boost` : "Flip Boost");
           for (let i = 0; i < 28; i += 1) {
             spawnFx(
