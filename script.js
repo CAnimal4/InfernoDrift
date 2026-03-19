@@ -39,6 +39,17 @@ const rampDensitySelect = document.getElementById("ramp-density-select");
 const devModeToggle = document.getElementById("dev-mode-toggle");
 const devModeStatus = document.getElementById("dev-mode-status");
 const devModeHint = document.getElementById("dev-mode-hint");
+const devTools = document.getElementById("dev-tools");
+const devPlayerSpeed = document.getElementById("dev-player-speed");
+const devPlayerSpeedValue = document.getElementById("dev-player-speed-value");
+const devBotSpeed = document.getElementById("dev-bot-speed");
+const devBotSpeedValue = document.getElementById("dev-bot-speed-value");
+const devInfiniteBoost = document.getElementById("dev-infinite-boost");
+const devInvulnerable = document.getElementById("dev-invulnerable");
+const devFreezeBots = document.getElementById("dev-freeze-bots");
+const devRefillBoost = document.getElementById("dev-refill-boost");
+const devHeal = document.getElementById("dev-heal");
+const devClearLevel = document.getElementById("dev-clear-level");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
 const bodySelect = document.getElementById("body-select");
@@ -132,6 +143,13 @@ const DEFAULT_CUSTOMIZATION = {
   tintId: "smoke",
   spoilerId: "none",
   glowId: "cyan"
+};
+const DEFAULT_DEV_TUNING = {
+  playerSpeedMult: 1,
+  botSpeedMult: 1,
+  infiniteBoost: false,
+  invulnerable: false,
+  freezeBots: false
 };
 const MINIMAP_FORWARD_BIAS = 0.2;
 const MINIMAP_HEADING_SMOOTH = 10;
@@ -568,6 +586,10 @@ const customization = {
   ...DEFAULT_CUSTOMIZATION
 };
 
+const devTuning = {
+  ...DEFAULT_DEV_TUNING
+};
+
 const state = {
   running: false,
   worldIndex: 0,
@@ -608,6 +630,7 @@ const state = {
   devJumpActive: false,
   devJumpCarrySpeed: 0,
   backflipChainCount: 0,
+  deviceInputMode: "auto",
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
 };
@@ -641,6 +664,20 @@ function detectTouchCapability() {
   return coarsePointer || touchPoints > 0;
 }
 
+function detectLikelyPortableTouch() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const longest = Math.max(width, height);
+  return detectTouchCapability() && longest <= 1400;
+}
+
+function updateAutoInputMode(mode) {
+  if (settings.deviceMode !== "auto") return;
+  if (state.deviceInputMode === mode) return;
+  state.deviceInputMode = mode;
+  applyDeviceProfile();
+}
+
 function getDeviceAssistTuning() {
   return state.deviceProfile ?? { mode: "auto", ...DEVICE_PROFILES.desktop };
 }
@@ -655,13 +692,36 @@ function setMinimapSize(size) {
 
 function applyDeviceProfile() {
   const touchAvailable = detectTouchCapability();
-  const resolvedType = settings.deviceMode === "auto" ? resolveDeviceClassFromViewport() : settings.deviceMode;
+  const viewportType = resolveDeviceClassFromViewport();
+  const likelyPortableTouch = detectLikelyPortableTouch();
+  let resolvedType = settings.deviceMode;
+  if (settings.deviceMode === "auto") {
+    if (state.deviceInputMode === "desktop") {
+      resolvedType = "desktop";
+    } else if (state.deviceInputMode === "touch") {
+      resolvedType = viewportType === "phone" ? "phone" : "tablet";
+    } else if (viewportType === "phone") {
+      resolvedType = "phone";
+    } else if (viewportType === "tablet" && likelyPortableTouch) {
+      resolvedType = "tablet";
+    } else {
+      resolvedType = "desktop";
+    }
+  }
   const profile = DEVICE_PROFILES[resolvedType] ?? DEVICE_PROFILES.desktop;
-  const touchActive = settings.deviceMode === "auto" ? profile.usesTouch && touchAvailable : profile.usesTouch;
+  const touchActive =
+    settings.deviceMode === "auto"
+      ? state.deviceInputMode === "touch"
+        ? touchAvailable
+        : resolvedType !== "desktop" && touchAvailable && likelyPortableTouch
+      : profile.usesTouch;
   state.deviceProfile = {
     mode: settings.deviceMode,
+    type: resolvedType,
+    viewportType,
     touchAvailable,
     touchActive,
+    inputMode: state.deviceInputMode,
     ...profile
   };
   document.body.classList.remove("device-desktop", "device-tablet", "device-phone");
@@ -688,7 +748,7 @@ function applyDeviceProfile() {
   if (deviceModeActive) {
     const label = resolvedType.charAt(0).toUpperCase() + resolvedType.slice(1);
     if (settings.deviceMode === "auto") {
-      deviceModeActive.textContent = `Active device: ${label} (Auto, touch ${touchActive ? "on" : "off"})`;
+      deviceModeActive.textContent = `Active device: ${label} (Auto, last input ${state.deviceInputMode}, touch ${touchActive ? "on" : "off"})`;
     } else {
       deviceModeActive.textContent = `Active device: ${label} (Manual, touch ${touchActive ? "on" : "off"})`;
     }
@@ -798,6 +858,16 @@ function computePlayerLoadoutStats() {
   };
 }
 
+function applyRuntimePlayerStats() {
+  const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
+  const playerSpeedMult = settings.devMode ? devTuning.playerSpeedMult : 1;
+  player.maxSpeed = loadoutStats.topSpeed * playerSpeedMult;
+  player.accel = loadoutStats.accel * (0.94 + (playerSpeedMult - 1) * 0.45);
+  player.turnRate = loadoutStats.turnRate;
+  player.normalGrip = loadoutStats.normalGrip;
+  player.driftGrip = loadoutStats.driftGrip;
+}
+
 function savePersistentState() {
   const payload = {
     worldIndex: state.worldIndex,
@@ -809,6 +879,13 @@ function savePersistentState() {
       rampDensity: settings.rampDensity,
       deviceMode: settings.deviceMode,
       devMode: settings.devMode
+    },
+    devTuning: {
+      playerSpeedMult: devTuning.playerSpeedMult,
+      botSpeedMult: devTuning.botSpeedMult,
+      infiniteBoost: devTuning.infiniteBoost,
+      invulnerable: devTuning.invulnerable,
+      freezeBots: devTuning.freezeBots
     },
     customization: {
       bodyId: customization.bodyId,
@@ -843,6 +920,13 @@ function loadPersistentState() {
       if (typeof data.settings.deviceMode === "string") settings.deviceMode = data.settings.deviceMode;
       if (typeof data.settings.devMode === "boolean") settings.devMode = data.settings.devMode;
     }
+    if (data.devTuning && typeof data.devTuning === "object") {
+      if (Number.isFinite(data.devTuning.playerSpeedMult)) devTuning.playerSpeedMult = data.devTuning.playerSpeedMult;
+      if (Number.isFinite(data.devTuning.botSpeedMult)) devTuning.botSpeedMult = data.devTuning.botSpeedMult;
+      if (typeof data.devTuning.infiniteBoost === "boolean") devTuning.infiniteBoost = data.devTuning.infiniteBoost;
+      if (typeof data.devTuning.invulnerable === "boolean") devTuning.invulnerable = data.devTuning.invulnerable;
+      if (typeof data.devTuning.freezeBots === "boolean") devTuning.freezeBots = data.devTuning.freezeBots;
+    }
     if (data.customization && typeof data.customization === "object") {
       if (typeof data.customization.bodyId === "string") customization.bodyId = data.customization.bodyId;
       if (typeof data.customization.wheelId === "string") customization.wheelId = data.customization.wheelId;
@@ -870,15 +954,39 @@ function refreshDevModeUi() {
   document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
   if (touchJump) {
-    touchJump.hidden = !(settings.devMode && input.touchEnabled);
+    touchJump.hidden = !input.touchEnabled;
   }
   if (touchBackflip) {
-    touchBackflip.hidden = !(settings.devMode && input.touchEnabled);
+    touchBackflip.hidden = !input.touchEnabled;
+  }
+  if (devTools) {
+    devTools.hidden = !settings.devMode;
+  }
+  if (devPlayerSpeed) {
+    devPlayerSpeed.value = String(Math.round(devTuning.playerSpeedMult * 100));
+  }
+  if (devPlayerSpeedValue) {
+    devPlayerSpeedValue.textContent = `${Math.round(devTuning.playerSpeedMult * 100)}%`;
+  }
+  if (devBotSpeed) {
+    devBotSpeed.value = String(Math.round(devTuning.botSpeedMult * 100));
+  }
+  if (devBotSpeedValue) {
+    devBotSpeedValue.textContent = `${Math.round(devTuning.botSpeedMult * 100)}%`;
+  }
+  if (devInfiniteBoost) {
+    devInfiniteBoost.checked = settings.devMode && devTuning.infiniteBoost;
+  }
+  if (devInvulnerable) {
+    devInvulnerable.checked = settings.devMode && devTuning.invulnerable;
+  }
+  if (devFreezeBots) {
+    devFreezeBots.checked = settings.devMode && devTuning.freezeBots;
   }
   if (devModeHint) {
     devModeHint.textContent = settings.devMode
-      ? "Dev Mode enabled. Press X to jump, C to backflip mid-air, or use Jump/Backflip touch buttons on phone/tablet."
-      : "Dev Mode adds a jump on X, a mid-air backflip on C, and touch Jump/Backflip buttons on phones/tablets.";
+      ? "Dev Mode enabled. Tune player and bot speed, freeze bots, go infinite boost, or quick-clear the level."
+      : "Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.";
   }
   if (devModeStatus) {
     devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
@@ -887,11 +995,19 @@ function refreshDevModeUi() {
 
 function setDevMode(enabled, { save = true, announce = true } = {}) {
   settings.devMode = enabled;
+  applyRuntimePlayerStats();
   refreshDevModeUi();
   if (announce) {
     setEffectToast(enabled ? "Dev Mode Enabled" : "Dev Mode Disabled");
   }
   if (save) savePersistentState();
+}
+
+function setDevTuningValue(key, value) {
+  devTuning[key] = value;
+  applyRuntimePlayerStats();
+  refreshDevModeUi();
+  savePersistentState();
 }
 
 function getNextProgressIndices() {
@@ -1189,11 +1305,7 @@ function rebuildPlayerCarMesh() {
 function applyPlayerCustomization(options = {}) {
   clampCustomizationToUnlocks(options.progress);
   state.playerLoadoutStats = computePlayerLoadoutStats();
-  player.maxSpeed = state.playerLoadoutStats.topSpeed;
-  player.accel = state.playerLoadoutStats.accel;
-  player.turnRate = state.playerLoadoutStats.turnRate;
-  player.normalGrip = state.playerLoadoutStats.normalGrip;
-  player.driftGrip = state.playerLoadoutStats.driftGrip;
+  applyRuntimePlayerStats();
   rebuildPlayerCarMesh();
   refreshCustomizationMenu();
 }
@@ -1831,7 +1943,6 @@ function applyAirborneSpeedRules(car, { boostActive = false, padMult = 1, topSpe
 }
 
 function attemptBackflip() {
-  if (!settings.devMode) return false;
   if (player.backflipActive && player.backflipProgress < 0.5) return false;
   const canFlipNow = player.position.y > 0.05 || Math.abs(player.verticalVel) > 0.08;
   if (!canFlipNow) {
@@ -1857,7 +1968,7 @@ function attemptBackflip() {
 }
 
 function attemptDevJump() {
-  if (!settings.devMode || isCarAirborne(player) || player.backflipActive) return false;
+  if (isCarAirborne(player) || player.backflipActive) return false;
   player.verticalVel = 12.4;
   player.position.y = 0.24;
   state.devJumpComboTimer = 0.8;
@@ -1865,7 +1976,7 @@ function attemptDevJump() {
   state.devJumpCarrySpeed = player.speed;
   state.backflipChainCount = 0;
   state.backflipQueueTimer = 0;
-  setEffectToast("Dev Jump");
+  setEffectToast("Jump");
   for (let i = 0; i < 5; i += 1) {
     spawnFx(
       player.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.18, (Math.random() - 0.5) * 0.8)),
@@ -1898,9 +2009,9 @@ function updatePlayer(dt) {
       attemptBackflip();
     }
   }
-  if (settings.devMode && input.backflip && airborne && !player.backflipActive) {
+  if (input.backflip && airborne && !player.backflipActive) {
     attemptBackflip();
-  } else if (settings.devMode && input.backflip && airborne && player.backflipActive && player.backflipProgress > 0.58) {
+  } else if (input.backflip && airborne && player.backflipActive && player.backflipProgress > 0.58) {
     attemptBackflip();
   }
   const throttle = input.throttle ? 1 : 0;
@@ -1967,7 +2078,9 @@ function updatePlayer(dt) {
   const lateral = new THREE.Vector3(Math.cos(player.moveHeading), 0, -Math.sin(player.moveHeading));
   player.velocity.addScaledVector(lateral, steer * speedAbs * slipAmount * 0.08 * (deviceAssist.usesTouch ? 0.94 : 1));
 
-  if (boostActive) {
+  if (settings.devMode && devTuning.infiniteBoost) {
+    state.boost = 1;
+  } else if (boostActive) {
     state.boost = Math.max(0, state.boost - dt * 0.18 * loadoutStats.boostDrainMult);
   } else {
     state.boost = Math.min(1, state.boost + dt * 0.08);
@@ -2144,12 +2257,24 @@ function isValidBotHit(playerCar, botCar, segmentDistance) {
 
 function updateBots(dt) {
   if (settings.difficulty === "no_bots") return;
+  if (settings.devMode && devTuning.freezeBots) {
+    bots.forEach((bot) => {
+      bot.speed = 0;
+      bot.velocity.set(0, 0, 0);
+      bot.prevPosition.copy(bot.position);
+    });
+    return;
+  }
   const level = getLevel();
   const profile = getDifficultyProfile();
   const deviceAssist = getDeviceAssistTuning();
   const slowMultiplier = state.slowBotsTimer > 0 ? 0.72 : 1;
   const targetSpeed =
-    (level.botSpeed + state.heat * 8 * profile.heatRamp) * profile.speedMultiplier * slowMultiplier * deviceAssist.botSpeedMult;
+    (level.botSpeed + state.heat * 8 * profile.heatRamp) *
+    profile.speedMultiplier *
+    slowMultiplier *
+    deviceAssist.botSpeedMult *
+    (settings.devMode ? devTuning.botSpeedMult : 1);
   if (bots.length === 0) return;
 
   const packCenter = new THREE.Vector3();
@@ -2565,6 +2690,10 @@ function loseLife() {
 }
 
 function handlePlayerHit(sourceBotId = -1) {
+  if (settings.devMode && devTuning.invulnerable) {
+    debugLog("hits", "suppressed_by_dev_invulnerable", { sourceBotId });
+    return;
+  }
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const now = performance.now();
   if (state.postHitSafeFrames > 0) {
@@ -2803,7 +2932,17 @@ window.addEventListener("resize", () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
 });
 
+window.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (event.pointerType === "touch") updateAutoInputMode("touch");
+    if (event.pointerType === "mouse") updateAutoInputMode("desktop");
+  },
+  { capture: true }
+);
+
 window.addEventListener("keydown", (event) => {
+  updateAutoInputMode("desktop");
   if (event.code === "Space") event.preventDefault();
   if (event.code === "KeyC") event.preventDefault();
   if (event.code === "KeyX") event.preventDefault();
@@ -2844,6 +2983,7 @@ window.addEventListener("keyup", (event) => {
 });
 
 canvas.addEventListener("pointerdown", (event) => {
+  updateAutoInputMode(event.pointerType === "touch" ? "touch" : "desktop");
   input.pointerActive = true;
   input.pointerStartX = event.clientX;
   input.pointerX = event.clientX;
@@ -2913,6 +3053,7 @@ function initTouchControls() {
   touchSteerPad.addEventListener("pointerdown", (event) => {
     if (!input.touchEnabled) return;
     event.preventDefault();
+    updateAutoInputMode("touch");
     touchSteerPad.setPointerCapture(event.pointerId);
     updateTouchInput(event.clientX, event.clientY);
   });
@@ -2928,7 +3069,10 @@ function initTouchControls() {
   touchSteerPad.addEventListener("pointerleave", endSteer);
 
   touchDrift.addEventListener("pointerdown", () => {
-    if (input.touchEnabled) input.drift = true;
+    if (input.touchEnabled) {
+      updateAutoInputMode("touch");
+      input.drift = true;
+    }
   });
   touchDrift.addEventListener("pointerup", () => {
     if (input.touchEnabled) input.drift = false;
@@ -2937,7 +3081,10 @@ function initTouchControls() {
     if (input.touchEnabled) input.drift = false;
   });
   touchBoost.addEventListener("pointerdown", () => {
-    if (input.touchEnabled) input.boost = true;
+    if (input.touchEnabled) {
+      updateAutoInputMode("touch");
+      input.boost = true;
+    }
   });
   touchBoost.addEventListener("pointerup", () => {
     if (input.touchEnabled) input.boost = false;
@@ -2947,12 +3094,16 @@ function initTouchControls() {
   });
   if (touchJump) {
     bindPressAction(touchJump, () => {
-      if (input.touchEnabled) attemptDevJump();
+      if (input.touchEnabled) {
+        updateAutoInputMode("touch");
+        attemptDevJump();
+      }
     });
   }
   if (touchBackflip) {
     touchBackflip.addEventListener("pointerdown", () => {
       if (!input.touchEnabled) return;
+      updateAutoInputMode("touch");
       input.backflip = true;
       attemptBackflip();
     });
@@ -3053,6 +3204,62 @@ if (devModeToggle) {
   });
 }
 
+if (devPlayerSpeed) {
+  devPlayerSpeed.addEventListener("input", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("playerSpeedMult", Number(event.target.value) / 100);
+  });
+}
+
+if (devBotSpeed) {
+  devBotSpeed.addEventListener("input", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("botSpeedMult", Number(event.target.value) / 100);
+  });
+}
+
+if (devInfiniteBoost) {
+  devInfiniteBoost.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("infiniteBoost", event.target.checked);
+  });
+}
+
+if (devInvulnerable) {
+  devInvulnerable.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("invulnerable", event.target.checked);
+  });
+}
+
+if (devFreezeBots) {
+  devFreezeBots.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("freezeBots", event.target.checked);
+  });
+}
+
+bindPressAction(devRefillBoost, () => {
+  if (!settings.devMode) return;
+  state.boost = 1;
+  state.padSpeedTimer = Math.max(state.padSpeedTimer, 2.2);
+  state.padSpeedMult = Math.max(state.padSpeedMult, 1.3);
+  setEffectToast("Boost Refilled");
+});
+
+bindPressAction(devHeal, () => {
+  if (!settings.devMode) return;
+  state.lives = 5;
+  state.livesPulse = 1;
+  renderLivesHud();
+  setEffectToast("Lives Maxed");
+});
+
+bindPressAction(devClearLevel, () => {
+  if (!settings.devMode) return;
+  completeLevel();
+});
+
 invertToggle.addEventListener("change", (event) => {
   settings.invertSteer = event.target.checked;
   savePersistentState();
@@ -3131,6 +3338,7 @@ if (glowSelect) {
 if (deviceModeSelect) {
   deviceModeSelect.addEventListener("change", (event) => {
     settings.deviceMode = event.target.value;
+    state.deviceInputMode = settings.deviceMode === "auto" ? "auto" : settings.deviceMode === "desktop" ? "desktop" : "touch";
     applyDeviceProfile();
     savePersistentState();
   });

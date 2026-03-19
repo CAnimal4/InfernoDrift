@@ -174,7 +174,36 @@
                 <input id="dev-mode-toggle" type="checkbox" />
               </label>
               <p class="hint" id="dev-mode-status">Status: Disabled</p>
-              <p class="hint" id="dev-mode-hint">Dev Mode adds a mid-air backflip on `B` and a touch backflip button on phones/tablets.</p>
+              <p class="hint" id="dev-mode-hint">Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.</p>
+              <div class="dev-tools" id="dev-tools" hidden>
+                <div class="dev-tools-grid">
+                  <label class="field">
+                    <span>Player Speed <strong id="dev-player-speed-value">100%</strong></span>
+                    <input id="dev-player-speed" type="range" min="50" max="220" step="5" value="100" />
+                  </label>
+                  <label class="field">
+                    <span>Bot Speed <strong id="dev-bot-speed-value">100%</strong></span>
+                    <input id="dev-bot-speed" type="range" min="0" max="220" step="5" value="100" />
+                  </label>
+                  <label class="field toggle">
+                    <span>Infinite Boost</span>
+                    <input id="dev-infinite-boost" type="checkbox" />
+                  </label>
+                  <label class="field toggle">
+                    <span>Invulnerable</span>
+                    <input id="dev-invulnerable" type="checkbox" />
+                  </label>
+                  <label class="field toggle">
+                    <span>Freeze Bots</span>
+                    <input id="dev-freeze-bots" type="checkbox" />
+                  </label>
+                </div>
+                <div class="cta-row dev-tools-actions">
+                  <button class="ghost" id="dev-refill-boost" type="button">Refill Boost</button>
+                  <button class="ghost" id="dev-heal" type="button">Max Lives</button>
+                  <button class="ghost" id="dev-clear-level" type="button">Clear Level</button>
+                </div>
+              </div>
               <p class="hint">Changes apply instantly. Press R to restart the current level.</p>
             </section>
             <section class="tab-panel" id="tab-customize">
@@ -249,6 +278,7 @@
                 <li>Hunter bots will chase you — dodge or bait them wide.</li>
                 <li>Hit neon ramps to launch and earn airtime bonus.</li>
                 <li>Boost pads refill boost and sling you forward.</li>
+                <li>Use Jump and Backflip to set up trick landings and airborne recoveries.</li>
                 <li>Collect powerups: Boost, Shield, Life, or Slow.</li>
               </ol>
             </section>
