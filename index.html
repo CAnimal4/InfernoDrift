@@ -173,8 +173,8 @@
                 <span>Dev Mode</span>
                 <input id="dev-mode-toggle" type="checkbox" />
               </label>
-              <p class="hint" id="dev-mode-status">Status: Disabled</p>
-              <p class="hint" id="dev-mode-hint">Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.</p>
+              <p class="hint" id="dev-mode-status" hidden>Status: Disabled</p>
+              <p class="hint" id="dev-mode-hint" hidden>Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.</p>
               <div class="dev-tools" id="dev-tools" hidden>
                 <div class="dev-tools-grid">
                   <label class="field">
@@ -200,8 +200,11 @@
                 </div>
                 <div class="cta-row dev-tools-actions">
                   <button class="ghost" id="dev-refill-boost" type="button">Refill Boost</button>
+                  <button class="ghost" id="dev-refill-shield" type="button">Refill Shield</button>
+                  <button class="ghost" id="dev-cool-bots" type="button">Cool Bots</button>
                   <button class="ghost" id="dev-heal" type="button">Max Lives</button>
                   <button class="ghost" id="dev-clear-level" type="button">Clear Level</button>
+                  <button class="ghost" id="dev-reset-tuning" type="button">Reset Dev Tweaks</button>
                 </div>
               </div>
               <p class="hint">Changes apply instantly. Press R to restart the current level.</p>

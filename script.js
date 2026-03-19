@@ -48,8 +48,11 @@ const devInfiniteBoost = document.getElementById("dev-infinite-boost");
 const devInvulnerable = document.getElementById("dev-invulnerable");
 const devFreezeBots = document.getElementById("dev-freeze-bots");
 const devRefillBoost = document.getElementById("dev-refill-boost");
+const devRefillShield = document.getElementById("dev-refill-shield");
+const devCoolBots = document.getElementById("dev-cool-bots");
 const devHeal = document.getElementById("dev-heal");
 const devClearLevel = document.getElementById("dev-clear-level");
+const devResetTuning = document.getElementById("dev-reset-tuning");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
 const bodySelect = document.getElementById("body-select");
@@ -984,11 +987,13 @@ function refreshDevModeUi() {
     devFreezeBots.checked = settings.devMode && devTuning.freezeBots;
   }
   if (devModeHint) {
+    devModeHint.hidden = !settings.devMode;
     devModeHint.textContent = settings.devMode
       ? "Dev Mode enabled. Tune player and bot speed, freeze bots, go infinite boost, or quick-clear the level."
       : "Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.";
   }
   if (devModeStatus) {
+    devModeStatus.hidden = !settings.devMode;
     devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
   }
 }
@@ -1005,6 +1010,13 @@ function setDevMode(enabled, { save = true, announce = true } = {}) {
 
 function setDevTuningValue(key, value) {
   devTuning[key] = value;
+  applyRuntimePlayerStats();
+  refreshDevModeUi();
+  savePersistentState();
+}
+
+function resetDevTuning() {
+  Object.assign(devTuning, DEFAULT_DEV_TUNING);
   applyRuntimePlayerStats();
   refreshDevModeUi();
   savePersistentState();
@@ -3247,6 +3259,20 @@ bindPressAction(devRefillBoost, () => {
   setEffectToast("Boost Refilled");
 });
 
+bindPressAction(devRefillShield, () => {
+  if (!settings.devMode) return;
+  state.shield = 1;
+  state.shieldTimer = Math.max(state.shieldTimer, 10);
+  setEffectToast("Shield Refilled");
+});
+
+bindPressAction(devCoolBots, () => {
+  if (!settings.devMode) return;
+  state.heat = 0;
+  state.slowBotsTimer = Math.max(state.slowBotsTimer, 8);
+  setEffectToast("Bots Cooled");
+});
+
 bindPressAction(devHeal, () => {
   if (!settings.devMode) return;
   state.lives = 5;
@@ -3258,6 +3284,12 @@ bindPressAction(devHeal, () => {
 bindPressAction(devClearLevel, () => {
   if (!settings.devMode) return;
   completeLevel();
+});
+
+bindPressAction(devResetTuning, () => {
+  if (!settings.devMode) return;
+  resetDevTuning();
+  setEffectToast("Dev Tweaks Reset");
 });
 
 invertToggle.addEventListener("change", (event) => {

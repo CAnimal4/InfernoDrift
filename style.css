@@ -231,6 +231,10 @@ canvas {
 .menu-panel {
   max-width: 680px;
   text-align: left;
+  max-height: min(88vh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .menu-header {
@@ -245,6 +249,24 @@ canvas {
   gap: 10px;
   margin: 20px 0 12px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.menu-content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+
+.menu-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.menu-content::-webkit-scrollbar-thumb {
+  background: rgba(126, 178, 255, 0.28);
+  border-radius: 999px;
 }
 
 .tab-btn {
