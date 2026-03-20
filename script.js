@@ -1012,12 +1012,10 @@ function refreshDevModeUi() {
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
   if (gamesTabBtn) {
     gamesTabBtn.hidden = !settings.devMode;
+    gamesTabBtn.style.display = settings.devMode ? "" : "none";
+    gamesTabBtn.setAttribute("aria-hidden", settings.devMode ? "false" : "true");
     if (!settings.devMode && gamesTabBtn.classList.contains("active")) {
-      gamesTabBtn.classList.remove("active");
-      tabButtons.forEach((button) => {
-        if (button.dataset.tab === "settings") button.classList.add("active");
-      });
-      tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === "tab-settings"));
+      setActiveTab("settings");
     }
   }
   if (touchJump) {
@@ -1064,10 +1062,14 @@ function refreshDevModeUi() {
 }
 
 function setDevMode(enabled, { save = true, announce = true } = {}) {
+  const wasEnabled = settings.devMode;
   settings.devMode = enabled;
   if (!enabled && isMaxMode()) settings.activeGameMode = GAME_MODE_ID33;
   applyRuntimePlayerStats();
   refreshDevModeUi();
+  if (enabled && !wasEnabled) {
+    setActiveTab("games");
+  }
   if (announce) {
     setEffectToast(enabled ? "Dev Mode Enabled" : "Dev Mode Disabled");
   }
@@ -1091,6 +1093,15 @@ function refreshGamesUi() {
   if (gameModeHint) {
     gameModeHint.textContent = `Current game: ${activeMeta.title} - ${activeMeta.subtitle}`;
   }
+}
+
+function setActiveTab(tabName = "settings") {
+  tabButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === tabName);
+  });
+  tabPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+  });
 }
 
 function setActiveGameMode(mode, { save = true, reset = false } = {}) {
@@ -3836,11 +3847,7 @@ bindPressAction(menuClose, () => {
 tabButtons.forEach((button) => {
   bindPressAction(button, () => {
     if (button.hidden) return;
-    tabButtons.forEach((btn) => btn.classList.remove("active"));
-    tabPanels.forEach((panel) => panel.classList.remove("active"));
-    button.classList.add("active");
-    const target = document.getElementById(`tab-${button.dataset.tab}`);
-    if (target) target.classList.add("active");
+    setActiveTab(button.dataset.tab);
   });
 });
 
