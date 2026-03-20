@@ -144,15 +144,18 @@ const GAME_MODE_ID33 = "infernodrift33";
 const GAME_MODE_MAX1 = "infernodriftmax1";
 const MAX_MODE_MATCH_TIME = 180;
 const MAX_MODE_GOAL_TARGET = 5;
-const MAX_STADIUM_RADIUS = 150;
-const MAX_STADIUM_FLOOR_RADIUS = 98;
-const MAX_STADIUM_WALL_HEIGHT = 21;
-const MAX_GOAL_WIDTH = 24;
-const MAX_GOAL_LINE_Z = MAX_STADIUM_RADIUS - 10;
-const MAX_BALL_RADIUS = 3.4;
-const MAX_BALL_DRAG = 0.992;
-const MAX_BALL_BOUNCE = 0.78;
-const MAX_CAR_BUMP_FORCE = 18;
+const MAX_STADIUM_RADIUS = 188;
+const MAX_STADIUM_FLOOR_RADIUS = 128;
+const MAX_STADIUM_WALL_HEIGHT = 30;
+const MAX_STADIUM_RIM_START = 0.9;
+const MAX_GOAL_WIDTH = 30;
+const MAX_GOAL_LINE_Z = MAX_STADIUM_RADIUS - 16;
+const MAX_BALL_RADIUS = 4.2;
+const MAX_BALL_DRAG = 0.996;
+const MAX_BALL_BOUNCE = 0.72;
+const MAX_CAR_BUMP_FORCE = 16;
+const MAX_MODE_SPEED_MULT = 0.84;
+const MAX_MODE_TURN_MULT = 0.88;
 const DEFAULT_CUSTOMIZATION = {
   bodyId: "street",
   wheelId: "grip",
@@ -1754,26 +1757,26 @@ function spawnExtraBoostPad(x, z) {
 
 function getLevelFeatureConfig() {
   const variants = {
-    "0-0": { feature: "spires", barriers: "none", padLane: "center", extraRamps: [{ x: -84, z: 84, kind: "normal" }] },
-    "0-1": { feature: "chicane", barriers: "chicane", padLane: "north", extraRamps: [{ x: 96, z: -58, kind: "mega" }] },
-    "0-2": { feature: "hazards", barriers: "cross", padLane: "east", extraRamps: [{ x: -126, z: 0, kind: "normal" }] },
-    "0-3": { feature: "gates", barriers: "gate", padLane: "ring", extraRamps: [{ x: 0, z: -134, kind: "mega" }] },
-    "1-0": { feature: "beacons", barriers: "lanes", padLane: "south", extraRamps: [{ x: 118, z: 62, kind: "normal" }] },
-    "1-1": { feature: "stagger", barriers: "stagger", padLane: "west", extraRamps: [{ x: -110, z: -72, kind: "mega" }] },
-    "1-2": { feature: "icefield", barriers: "cross", padLane: "center", extraRamps: [{ x: 124, z: 0, kind: "normal" }] },
-    "1-3": { feature: "towers", barriers: "gate", padLane: "ring", extraRamps: [{ x: 0, z: 136, kind: "mega" }] },
-    "2-0": { feature: "furnaces", barriers: "lanes", padLane: "north", extraRamps: [{ x: -132, z: 48, kind: "normal" }] },
-    "2-1": { feature: "funnels", barriers: "chicane", padLane: "east", extraRamps: [{ x: 138, z: -24, kind: "mega" }] },
-    "2-2": { feature: "corridors", barriers: "stagger", padLane: "south", extraRamps: [{ x: -96, z: -118, kind: "normal" }] },
-    "2-3": { feature: "dais", barriers: "box", padLane: "center", extraRamps: [{ x: 94, z: 118, kind: "mega" }] },
-    "3-0": { feature: "stormgates", barriers: "gate", padLane: "west", extraRamps: [{ x: -144, z: 0, kind: "normal" }] },
-    "3-1": { feature: "relay", barriers: "cross", padLane: "ring", extraRamps: [{ x: 146, z: 34, kind: "mega" }] },
-    "3-2": { feature: "arcs", barriers: "lanes", padLane: "north", extraRamps: [{ x: 0, z: -148, kind: "normal" }] },
-    "3-3": { feature: "crown", barriers: "box", padLane: "center", extraRamps: [{ x: 0, z: 150, kind: "mega" }] },
-    "4-0": { feature: "monoliths", barriers: "stagger", padLane: "east", extraRamps: [{ x: -120, z: -104, kind: "normal" }] },
-    "4-1": { feature: "causeway", barriers: "gate", padLane: "south", extraRamps: [{ x: 116, z: -116, kind: "mega" }] },
-    "4-2": { feature: "collider", barriers: "cross", padLane: "west", extraRamps: [{ x: -148, z: 60, kind: "normal" }] },
-    "4-3": { feature: "abyss", barriers: "box", padLane: "ring", extraRamps: [{ x: 148, z: 82, kind: "mega" }] }
+    "0-0": { layout: "open", padLane: "center", landmark: "beacons", extraRamps: [{ x: -84, z: 84, kind: "normal" }] },
+    "0-1": { layout: "split", padLane: "north", landmark: "corner_towers", extraRamps: [{ x: 96, z: -58, kind: "mega" }] },
+    "0-2": { layout: "outer", padLane: "east", landmark: "gateposts", extraRamps: [{ x: -126, z: 0, kind: "normal" }] },
+    "0-3": { layout: "center", padLane: "ring", landmark: "beacons", extraRamps: [{ x: 0, z: -134, kind: "mega" }] },
+    "1-0": { layout: "lanes", padLane: "south", landmark: "stacks", extraRamps: [{ x: 118, z: 62, kind: "normal" }] },
+    "1-1": { layout: "diagonal", padLane: "west", landmark: "beacons", extraRamps: [{ x: -110, z: -72, kind: "mega" }] },
+    "1-2": { layout: "outer", padLane: "center", landmark: "gateposts", extraRamps: [{ x: 124, z: 0, kind: "normal" }] },
+    "1-3": { layout: "boost", padLane: "ring", landmark: "corner_towers", extraRamps: [{ x: 0, z: 136, kind: "mega" }] },
+    "2-0": { layout: "lanes", padLane: "north", landmark: "stacks", extraRamps: [{ x: -132, z: 48, kind: "normal" }] },
+    "2-1": { layout: "split", padLane: "east", landmark: "gateposts", extraRamps: [{ x: 138, z: -24, kind: "mega" }] },
+    "2-2": { layout: "diagonal", padLane: "south", landmark: "stacks", extraRamps: [{ x: -96, z: -118, kind: "normal" }] },
+    "2-3": { layout: "center", padLane: "center", landmark: "beacons", extraRamps: [{ x: 94, z: 118, kind: "mega" }] },
+    "3-0": { layout: "outer", padLane: "west", landmark: "gateposts", extraRamps: [{ x: -144, z: 0, kind: "normal" }] },
+    "3-1": { layout: "boost", padLane: "ring", landmark: "corner_towers", extraRamps: [{ x: 146, z: 34, kind: "mega" }] },
+    "3-2": { layout: "open", padLane: "north", landmark: "beacons", extraRamps: [{ x: 0, z: -148, kind: "normal" }] },
+    "3-3": { layout: "center", padLane: "center", landmark: "corner_towers", extraRamps: [{ x: 0, z: 150, kind: "mega" }] },
+    "4-0": { layout: "diagonal", padLane: "east", landmark: "stacks", extraRamps: [{ x: -120, z: -104, kind: "normal" }] },
+    "4-1": { layout: "split", padLane: "south", landmark: "gateposts", extraRamps: [{ x: 116, z: -116, kind: "mega" }] },
+    "4-2": { layout: "boost", padLane: "west", landmark: "beacons", extraRamps: [{ x: -148, z: 60, kind: "normal" }] },
+    "4-3": { layout: "outer", padLane: "ring", landmark: "corner_towers", extraRamps: [{ x: 148, z: 82, kind: "mega" }] }
   };
   return variants[`${state.worldIndex}-${state.levelIndex}`] ?? variants["0-0"];
 }
@@ -1784,63 +1787,81 @@ function applyLevelIdentity(world) {
   const [primaryAccent, secondaryAccent] = world.accents;
   const beaconColor = secondaryAccent ?? primaryAccent;
 
-  if (feature.feature === "spires" || feature.feature === "towers" || feature.feature === "monoliths") {
-    [-140, -78, 78, 140].forEach((x, idx) => makeNeonBeacon(x, idx % 2 === 0 ? -146 : 146, 12 + idx * 2, beaconColor));
-  }
-  if (feature.feature === "gates" || feature.feature === "stormgates" || feature.feature === "causeway") {
-    makeBarrier(0, 122, 72, 6);
-    makeBarrier(0, -122, 72, 6);
-  }
-  if (feature.feature === "hazards" || feature.feature === "icefield" || feature.feature === "corridors" || feature.feature === "abyss") {
-    makeHazardStrip(0, 0, 18, 240, primaryAccent);
-    makeHazardStrip(0, 0, 240, 18, beaconColor);
-  }
-  if (feature.feature === "relay" || feature.feature === "arcs" || feature.feature === "crown" || feature.feature === "collider") {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(46, 1.35, 16, 48),
-      new THREE.MeshStandardMaterial({ color: beaconColor, emissive: primaryAccent, emissiveIntensity: 0.55, roughness: 0.18 })
-    );
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = 0.45;
-    arena.add(ring);
-  }
-  if (feature.feature === "furnaces" || feature.feature === "funnels" || feature.feature === "dais") {
-    makeBuilding(-90, 0, 22, 0x322620);
-    makeBuilding(90, 0, 22, 0x322620);
-  }
-  if (feature.feature === "beacons" || feature.feature === "stagger") {
-    [-110, -40, 40, 110].forEach((x, idx) => makeNeonBeacon(x, idx % 2 === 0 ? 64 : -64, 10 + idx, primaryAccent));
+  switch (feature.landmark) {
+    case "corner_towers":
+      [-132, 132].forEach((x) => {
+        [-132, 132].forEach((z) => makeNeonBeacon(x, z, 9 + Math.abs(x) / 44, beaconColor));
+      });
+      break;
+    case "stacks":
+      [
+        [-108, -44, 12],
+        [108, 44, 16],
+        [-122, 78, 10],
+        [122, -78, 10]
+      ].forEach(([x, z, height]) => makeBuilding(x, z, height, 0x2d2f35));
+      break;
+    case "gateposts":
+      [
+        [-118, -16],
+        [118, 16],
+        [-16, 118],
+        [16, -118]
+      ].forEach(([x, z]) => makeNeonBeacon(x, z, 8.5, primaryAccent));
+      break;
+    default:
+      [-116, 0, 116].forEach((x, idx) => makeNeonBeacon(x, idx % 2 === 0 ? 108 : -108, 8 + idx, beaconColor));
+      break;
   }
 
-  switch (feature.barriers) {
-    case "cross":
-      makeBarrier(0, 82, 14, 54);
-      makeBarrier(0, -82, 14, 54);
-      makeBarrier(82, 0, 54, 14);
-      makeBarrier(-82, 0, 54, 14);
-      break;
-    case "chicane":
-      makeBarrier(-56, 38, 12, 62);
-      makeBarrier(56, -38, 12, 62);
-      break;
-    case "gate":
-      makeBarrier(-52, 0, 14, 72);
-      makeBarrier(52, 0, 14, 72);
-      break;
+  switch (feature.layout) {
     case "lanes":
-      makeBarrier(-86, 0, 10, 122);
-      makeBarrier(86, 0, 10, 122);
+      [
+        [-78, -36, 14],
+        [-78, 36, 14],
+        [78, -36, 14],
+        [78, 36, 14]
+      ].forEach(([x, z, h]) => makeBuilding(x, z, h, 0x30333c));
       break;
-    case "stagger":
-      makeBarrier(-72, 48, 18, 42);
-      makeBarrier(0, -24, 18, 42);
-      makeBarrier(72, 72, 18, 42);
+    case "split":
+      [
+        [-48, 46, 12],
+        [48, -46, 12],
+        [-102, 0, 10],
+        [102, 0, 10]
+      ].forEach(([x, z, h]) => makeBuilding(x, z, h, 0x34323b));
       break;
-    case "box":
-      makeBarrier(0, 92, 76, 10);
-      makeBarrier(0, -92, 76, 10);
-      makeBarrier(92, 0, 10, 76);
-      makeBarrier(-92, 0, 10, 76);
+    case "diagonal":
+      [
+        [-88, -88, 10],
+        [-28, -28, 12],
+        [32, 32, 12],
+        [92, 92, 10]
+      ].forEach(([x, z, h]) => makeBuilding(x, z, h, 0x32353b));
+      break;
+    case "center":
+      [
+        [-34, 0, 11],
+        [34, 0, 11],
+        [0, -34, 11],
+        [0, 34, 11]
+      ].forEach(([x, z, h]) => makeBuilding(x, z, h, 0x353038));
+      break;
+    case "outer":
+      [
+        [-128, -26, 14],
+        [128, 26, 14],
+        [-26, 128, 14],
+        [26, -128, 14]
+      ].forEach(([x, z, h]) => makeBuilding(x, z, h, 0x2e3238));
+      break;
+    case "boost":
+      [
+        [-60, 66, 12],
+        [60, 66, 12],
+        [-60, -66, 12],
+        [60, -66, 12]
+      ].forEach(([x, z, h]) => makeBuilding(x, z, h, 0x32343d));
       break;
     default:
       break;
@@ -1848,23 +1869,23 @@ function applyLevelIdentity(world) {
 
   switch (feature.padLane) {
     case "north":
-      [-72, 0, 72].forEach((x) => spawnExtraBoostPad(x, 136));
+      [-78, 0, 78].forEach((x) => spawnExtraBoostPad(x, 138));
       break;
     case "south":
-      [-72, 0, 72].forEach((x) => spawnExtraBoostPad(x, -136));
+      [-78, 0, 78].forEach((x) => spawnExtraBoostPad(x, -138));
       break;
     case "east":
-      [-72, 0, 72].forEach((z) => spawnExtraBoostPad(136, z));
+      [-78, 0, 78].forEach((z) => spawnExtraBoostPad(138, z));
       break;
     case "west":
-      [-72, 0, 72].forEach((z) => spawnExtraBoostPad(-136, z));
+      [-78, 0, 78].forEach((z) => spawnExtraBoostPad(-138, z));
       break;
     case "ring":
       [
-        [0, 144],
-        [0, -144],
-        [144, 0],
-        [-144, 0]
+        [0, 148],
+        [0, -148],
+        [148, 0],
+        [-148, 0]
       ].forEach(([x, z]) => spawnExtraBoostPad(x, z));
       break;
     default:
@@ -1880,11 +1901,24 @@ function applyLevelIdentity(world) {
   });
 }
 
-function getMaxSurfaceHeight(x, z) {
+function getMaxSurfaceState(x, z) {
   const radius = Math.hypot(x, z);
-  if (radius <= MAX_STADIUM_FLOOR_RADIUS) return 0;
-  const t = THREE.MathUtils.clamp((radius - MAX_STADIUM_FLOOR_RADIUS) / (MAX_STADIUM_RADIUS - MAX_STADIUM_FLOOR_RADIUS), 0, 1);
-  return t * t * MAX_STADIUM_WALL_HEIGHT;
+  if (radius <= MAX_STADIUM_FLOOR_RADIUS) {
+    return { radius, t: 0, height: 0, slope: 0 };
+  }
+  const rawT = THREE.MathUtils.clamp((radius - MAX_STADIUM_FLOOR_RADIUS) / (MAX_STADIUM_RADIUS - MAX_STADIUM_FLOOR_RADIUS), 0, 1);
+  const t = rawT * rawT * (3 - 2 * rawT);
+  const slope = ((6 * rawT * (1 - rawT)) / Math.max(MAX_STADIUM_RADIUS - MAX_STADIUM_FLOOR_RADIUS, 1)) * MAX_STADIUM_WALL_HEIGHT;
+  return {
+    radius,
+    t,
+    height: t * MAX_STADIUM_WALL_HEIGHT,
+    slope
+  };
+}
+
+function getMaxSurfaceHeight(x, z) {
+  return getMaxSurfaceState(x, z).height;
 }
 
 function makeMaxGoal(team, zSign) {
@@ -1910,12 +1944,12 @@ function makeMaxGoal(team, zSign) {
 function buildMaxArena() {
   clearWorld();
   scene.fog.color.setHex(0x0d1522);
-  scene.background = new THREE.Color(0x102744);
-  groundMaterial.color.setHex(0x102030);
+  scene.background = new THREE.Color(0x0f2237);
+  groundMaterial.color.setHex(0x0d1724);
 
   const centerDisc = new THREE.Mesh(
     new THREE.CircleGeometry(MAX_STADIUM_FLOOR_RADIUS + 2, 48),
-    new THREE.MeshStandardMaterial({ color: 0x13263b, roughness: 0.84 })
+    new THREE.MeshStandardMaterial({ color: 0x13283f, roughness: 0.82, metalness: 0.08 })
   );
   centerDisc.rotation.x = -Math.PI / 2;
   centerDisc.position.y = 0.01;
@@ -1924,29 +1958,67 @@ function buildMaxArena() {
   const bowlProfile = [
     new THREE.Vector2(0, 0),
     new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS, 0),
-    new THREE.Vector2(118, 2.4),
-    new THREE.Vector2(132, 8),
+    new THREE.Vector2(146, 2.2),
+    new THREE.Vector2(164, 8.2),
+    new THREE.Vector2(177, 17.5),
     new THREE.Vector2(MAX_STADIUM_RADIUS, MAX_STADIUM_WALL_HEIGHT)
   ];
   const bowl = new THREE.Mesh(
     new THREE.LatheGeometry(bowlProfile, 64),
     new THREE.MeshStandardMaterial({
-      color: 0x1b2f46,
-      roughness: 0.58,
-      metalness: 0.08,
+      color: 0x21344b,
+      roughness: 0.52,
+      metalness: 0.12,
       side: THREE.DoubleSide
     })
   );
   bowl.position.y = 0.02;
   arena.add(bowl);
 
+  const wallGlow = new THREE.Mesh(
+    new THREE.LatheGeometry(
+      [
+        new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS + 8, 0.2),
+        new THREE.Vector2(154, 2.8),
+        new THREE.Vector2(172, 12),
+        new THREE.Vector2(MAX_STADIUM_RADIUS - 4, MAX_STADIUM_WALL_HEIGHT - 1.8)
+      ],
+      64
+    ),
+    new THREE.MeshStandardMaterial({
+      color: 0x16314c,
+      emissive: 0x16314c,
+      emissiveIntensity: 0.24,
+      roughness: 0.45,
+      transparent: true,
+      opacity: 0.78,
+      side: THREE.DoubleSide
+    })
+  );
+  wallGlow.position.y = 0.05;
+  arena.add(wallGlow);
+
   const centerRing = new THREE.Mesh(
-    new THREE.TorusGeometry(18, 0.8, 12, 42),
-    new THREE.MeshStandardMaterial({ color: 0x7feaff, emissive: 0x56e9ff, emissiveIntensity: 0.55, roughness: 0.22 })
+    new THREE.TorusGeometry(22, 1.1, 16, 56),
+    new THREE.MeshStandardMaterial({ color: 0x7feaff, emissive: 0x56e9ff, emissiveIntensity: 0.55, roughness: 0.2 })
   );
   centerRing.rotation.x = Math.PI / 2;
   centerRing.position.y = 0.26;
   arena.add(centerRing);
+
+  const centerGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(17, 48),
+    new THREE.MeshStandardMaterial({
+      color: 0x173550,
+      emissive: 0x173550,
+      emissiveIntensity: 0.28,
+      transparent: true,
+      opacity: 0.78
+    })
+  );
+  centerGlow.rotation.x = -Math.PI / 2;
+  centerGlow.position.y = 0.04;
+  arena.add(centerGlow);
 
   [-1, 1].forEach((zSign) => {
     makeMaxGoal(zSign < 0 ? "blue" : "red", zSign);
@@ -1962,10 +2034,25 @@ function buildMaxArena() {
     props.add(strip);
   });
 
-  maxMode.ball = new THREE.Mesh(
-    new THREE.SphereGeometry(MAX_BALL_RADIUS, 24, 24),
-    new THREE.MeshStandardMaterial({ color: 0xf5f5f2, roughness: 0.32, metalness: 0.08 })
+  maxMode.ball = new THREE.Group();
+  const ballCore = new THREE.Mesh(
+    new THREE.SphereGeometry(MAX_BALL_RADIUS, 28, 28),
+    new THREE.MeshStandardMaterial({ color: 0xf7f8fb, roughness: 0.18, metalness: 0.18 })
   );
+  const ballStripe = new THREE.Mesh(
+    new THREE.TorusGeometry(MAX_BALL_RADIUS * 0.76, 0.24, 12, 40),
+    new THREE.MeshStandardMaterial({ color: 0x76c7ff, emissive: 0x76c7ff, emissiveIntensity: 0.35, roughness: 0.16 })
+  );
+  ballStripe.rotation.y = Math.PI / 2;
+  const ballStripe2 = ballStripe.clone();
+  ballStripe2.rotation.x = Math.PI / 2;
+  const ballShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(MAX_BALL_RADIUS * 1.2, 28),
+    new THREE.MeshStandardMaterial({ color: 0x09111a, transparent: true, opacity: 0.28 })
+  );
+  ballShadow.rotation.x = -Math.PI / 2;
+  ballShadow.position.y = -MAX_BALL_RADIUS + 0.08;
+  maxMode.ball.add(ballCore, ballStripe, ballStripe2, ballShadow);
   maxMode.ball.position.set(0, MAX_BALL_RADIUS, 0);
   props.add(maxMode.ball);
   maxMode.ballVelocity.set(0, 0, 0);
@@ -2070,7 +2157,7 @@ function getWorld() {
       fog: 0x0d1522,
       sky: 0x102744,
       ground: 0x102030,
-      levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 46, spawnRate: 1 }]
+      levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 38, spawnRate: 1 }]
     };
   }
   return worldData[state.worldIndex];
@@ -2103,7 +2190,7 @@ function resetLevel() {
   state.overtime = false;
 
   const spawnX = isMaxMode() ? 0 : PLAYER_SPAWN_X;
-  const spawnZ = isMaxMode() ? -110 : PLAYER_SPAWN_Z;
+  const spawnZ = isMaxMode() ? -126 : PLAYER_SPAWN_Z;
   player.setPosition(spawnX, isMaxMode() ? getMaxSurfaceHeight(spawnX, spawnZ) : 0, spawnZ);
   player.velocity.set(0, 0, 0);
   player.speed = 0;
@@ -2147,11 +2234,11 @@ function clearBotState() {
 function spawnMaxBots() {
   clearBotState();
   const botSpecs = [
-    { team: "blue", role: "defender", color: 0x5feaff, x: -18, z: -86, heading: 0 },
-    { team: "blue", role: "support", color: 0x7fdbff, x: 18, z: -72, heading: 0.05 },
-    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 94, heading: Math.PI },
-    { team: "red", role: "striker", color: 0xff6c6c, x: -24, z: 66, heading: Math.PI - 0.1 },
-    { team: "red", role: "wing", color: 0xff9778, x: 24, z: 66, heading: Math.PI + 0.1 }
+    { team: "blue", role: "defender", color: 0x5feaff, x: -24, z: -104, heading: 0 },
+    { team: "blue", role: "support", color: 0x7fdbff, x: 24, z: -88, heading: 0.04 },
+    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 112, heading: Math.PI },
+    { team: "red", role: "striker", color: 0xff6c6c, x: -30, z: 82, heading: Math.PI - 0.08 },
+    { team: "red", role: "wing", color: 0xff9778, x: 30, z: 82, heading: Math.PI + 0.08 }
   ];
   botSpecs.forEach((spec) => {
     const bot = makeBot(spec.color);
@@ -2160,42 +2247,68 @@ function spawnMaxBots() {
     bot.setPosition(spec.x, getMaxSurfaceHeight(spec.x, spec.z), spec.z);
     bot.heading = spec.heading;
     bot.moveHeading = spec.heading;
-    bot.maxSpeed = 50;
-    bot.accel = 20;
-    bot.turnRate = 2.6;
+    bot.maxSpeed = 40;
+    bot.accel = 16;
+    bot.turnRate = 2.2;
     bots.push(bot);
   });
   maxMode.teamCars = [player, ...bots];
 }
 
-function constrainMaxArenaCar(car) {
-  const radius = Math.hypot(car.position.x, car.position.z);
-  if (radius > MAX_STADIUM_RADIUS - 1.5) {
-    const scale = (MAX_STADIUM_RADIUS - 1.5) / Math.max(radius, 0.001);
-    car.position.x *= scale;
-    car.position.z *= scale;
-    car.prevPosition.copy(car.position);
+function constrainMaxArenaCar(car, dt = 0.016) {
+  const surface = getMaxSurfaceState(car.position.x, car.position.z);
+  const radius = Math.max(surface.radius, 0.001);
+  const nx = car.position.x / radius;
+  const nz = car.position.z / radius;
+  const limit = MAX_STADIUM_RADIUS - 2.4;
+
+  if (surface.radius > limit) {
+    car.position.x = nx * limit;
+    car.position.z = nz * limit;
+    const inwardDot = car.velocity.x * nx + car.velocity.z * nz;
+    if (inwardDot > 0) {
+      car.velocity.x -= inwardDot * nx * 1.4;
+      car.velocity.z -= inwardDot * nz * 1.4;
+    }
+    car.speed *= 0.98;
   }
+
+  const groundedToWall = car.position.y <= surface.height + 0.65 && car.verticalVel <= 1.6;
+  if (groundedToWall) {
+    car.position.y = THREE.MathUtils.lerp(car.position.y, surface.height, Math.min(1, dt * 14));
+    car.verticalVel = Math.min(car.verticalVel, 0);
+    if (surface.t > MAX_STADIUM_RIM_START) {
+      const rimPush = THREE.MathUtils.mapLinear(surface.t, MAX_STADIUM_RIM_START, 1, 4, 10);
+      car.velocity.x -= nx * rimPush * dt * 9;
+      car.velocity.z -= nz * rimPush * dt * 9;
+      car.speed = Math.max(0, car.speed - rimPush * dt * 1.8);
+    }
+  }
+
   car.group.position.copy(car.position);
 }
 
 function getMaxBotTarget(bot) {
   const ball = maxMode.ball?.position ?? new THREE.Vector3();
-  const defendZ = bot.team === "blue" ? -MAX_GOAL_LINE_Z + 16 : MAX_GOAL_LINE_Z - 16;
-  const attackZ = bot.team === "blue" ? MAX_GOAL_LINE_Z - 8 : -MAX_GOAL_LINE_Z + 8;
+  const homeGoalZ = bot.team === "blue" ? -MAX_GOAL_LINE_Z : MAX_GOAL_LINE_Z;
+  const attackGoalZ = bot.team === "blue" ? MAX_GOAL_LINE_Z : -MAX_GOAL_LINE_Z;
+  const attackDir = new THREE.Vector3(0, 0, attackGoalZ - ball.z).normalize();
+  const behindBall = new THREE.Vector3(ball.x, 0, ball.z).addScaledVector(attackDir, -12);
+  const sideBias = bot.team === "blue" ? 1 : -1;
+
   if (bot.role === "defender") {
-    if (bot.team === "blue") {
-      return ball.z < 10 ? new THREE.Vector3(ball.x * 0.65, 0, THREE.MathUtils.lerp(defendZ, ball.z, 0.55)) : new THREE.Vector3(0, 0, defendZ);
+    if ((bot.team === "blue" && ball.z < 18) || (bot.team === "red" && ball.z > -18)) {
+      return new THREE.Vector3(ball.x * 0.55, 0, THREE.MathUtils.lerp(homeGoalZ + (bot.team === "blue" ? 12 : -12), ball.z, 0.5));
     }
-    return ball.z > -10 ? new THREE.Vector3(ball.x * 0.65, 0, THREE.MathUtils.lerp(defendZ, ball.z, 0.55)) : new THREE.Vector3(0, 0, defendZ);
+    return new THREE.Vector3(0, 0, homeGoalZ + (bot.team === "blue" ? 14 : -14));
   }
   if (bot.role === "support") {
-    return new THREE.Vector3(ball.x * 0.7, 0, THREE.MathUtils.lerp(ball.z, attackZ * 0.35, 0.28));
+    return new THREE.Vector3(behindBall.x * 0.92, 0, THREE.MathUtils.lerp(behindBall.z, attackGoalZ * 0.25, 0.18));
   }
   if (bot.role === "wing") {
-    return new THREE.Vector3(ball.x + (bot.team === "blue" ? 18 : -18), 0, THREE.MathUtils.lerp(ball.z, attackZ, 0.22));
+    return new THREE.Vector3(ball.x + 22 * sideBias, 0, THREE.MathUtils.lerp(ball.z, attackGoalZ, 0.24));
   }
-  return new THREE.Vector3(ball.x, 0, THREE.MathUtils.lerp(ball.z, attackZ, 0.18));
+  return new THREE.Vector3(behindBall.x, 0, behindBall.z);
 }
 
 function spawnBots() {
@@ -2485,7 +2598,10 @@ function updatePlayer(dt) {
 
   const speedAbs = Math.abs(player.speed);
   const speedRatio = THREE.MathUtils.clamp(speedAbs / player.maxSpeed, 0, 1);
-  const accel = player.accel * (boostActive ? 1.45 : 1) * padMult;
+  const modeSpeedMult = isMaxMode() ? MAX_MODE_SPEED_MULT : 1;
+  const modeTurnMult = isMaxMode() ? MAX_MODE_TURN_MULT : 1;
+  const maxModeCap = isMaxMode() ? 0.92 : 1;
+  const accel = player.accel * modeSpeedMult * (boostActive ? 1.45 : 1) * padMult;
   if (!airborne) {
     if (throttle) player.speed += accel * dt;
     if (brake) player.speed -= accel * dt * (0.9 + speedRatio * 0.25);
@@ -2519,11 +2635,11 @@ function updatePlayer(dt) {
     });
   } else {
     const boostCap = boostActive ? loadoutStats.boostSpeedMult : 1;
-    player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult);
+    player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult * maxModeCap);
   }
 
   const turnAssist = 0.78 + (1 - speedRatio) * 0.42;
-  const turnPower = player.turnRate * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.58 : 1);
+  const turnPower = player.turnRate * modeTurnMult * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.58 : 1);
   const direction = player.speed >= 0 ? 1 : -1;
   const steerMultiplier = airborne ? loadoutStats.airTurnRate * 0.72 : 1;
   player.heading += steer * turnPower * dt * direction * steerMultiplier;
@@ -2553,7 +2669,7 @@ function updatePlayer(dt) {
 
   updateVerticalPhysics(player, dt);
   player.update(dt);
-  if (isMaxMode()) constrainMaxArenaCar(player);
+  if (isMaxMode()) constrainMaxArenaCar(player, dt);
   updateCombo(dt, steer);
   emitDrivingFx(dt, steer, drift, boostActive);
 
@@ -2726,6 +2842,15 @@ function scoreMaxGoal(team) {
   maxMode.goalFlashTimer = 1.6;
   state.effectToast = team === "blue" ? "Blue Scores" : "Red Scores";
   state.effectToastTimer = 1.8;
+  for (let i = 0; i < 34; i += 1) {
+    spawnFx(
+      new THREE.Vector3(0, 1.4 + Math.random() * 2.4, team === "blue" ? MAX_GOAL_LINE_Z - 8 : -MAX_GOAL_LINE_Z + 8),
+      new THREE.Vector3((Math.random() - 0.5) * 8, 2.8 + Math.random() * 2.8, team === "blue" ? -3 - Math.random() * 3 : 3 + Math.random() * 3),
+      team === "blue" ? 0x7feaff : 0xff8f76,
+      0.9,
+      0.48
+    );
+  }
   state.boost = 1;
   player.speed = 0;
   player.velocity.set(0, 0, 0);
@@ -2735,14 +2860,14 @@ function scoreMaxGoal(team) {
     return;
   }
   const blueSpawns = [
-    [0, -110],
-    [-18, -86],
-    [18, -72]
+    [0, -126],
+    [-24, -104],
+    [24, -88]
   ];
   const redSpawns = [
-    [0, 94],
-    [-24, 66],
-    [24, 66]
+    [0, 112],
+    [-30, 82],
+    [30, 82]
   ];
   player.setPosition(blueSpawns[0][0], getMaxSurfaceHeight(...blueSpawns[0]), blueSpawns[0][1]);
   player.heading = 0;
@@ -2770,17 +2895,19 @@ function updateMaxBall(dt) {
   if (!maxMode.ball) return;
   maxMode.ballPrevPosition.copy(maxMode.ball.position);
   maxMode.goalFlashTimer = Math.max(0, maxMode.goalFlashTimer - dt);
-  maxMode.ballVelocity.y += GRAVITY * 0.72 * dt;
+  maxMode.ballVelocity.y += GRAVITY * 0.68 * dt;
   maxMode.ball.position.addScaledVector(maxMode.ballVelocity, dt);
   maxMode.ballVelocity.multiplyScalar(MAX_BALL_DRAG);
   const floorHeight = getMaxSurfaceHeight(maxMode.ball.position.x, maxMode.ball.position.z) + MAX_BALL_RADIUS;
   if (maxMode.ball.position.y < floorHeight) {
     maxMode.ball.position.y = floorHeight;
-    if (Math.abs(maxMode.ballVelocity.y) > 2) {
+    if (Math.abs(maxMode.ballVelocity.y) > 1.7) {
       maxMode.ballVelocity.y = Math.abs(maxMode.ballVelocity.y) * MAX_BALL_BOUNCE;
     } else {
       maxMode.ballVelocity.y = 0;
     }
+    maxMode.ballVelocity.x *= 0.992;
+    maxMode.ballVelocity.z *= 0.992;
   }
   if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH && maxMode.ball.position.z > MAX_GOAL_LINE_Z && maxMode.ball.position.y < 16) {
     scoreMaxGoal("blue");
@@ -2798,8 +2925,8 @@ function updateMaxBall(dt) {
     maxMode.ball.position.x = nx * ballLimit;
     maxMode.ball.position.z = nz * ballLimit;
     const dot = maxMode.ballVelocity.x * nx + maxMode.ballVelocity.z * nz;
-    maxMode.ballVelocity.x -= dot * nx * 1.92;
-    maxMode.ballVelocity.z -= dot * nz * 1.92;
+    maxMode.ballVelocity.x -= dot * nx * 1.74;
+    maxMode.ballVelocity.z -= dot * nz * 1.74;
   }
 }
 
@@ -2821,12 +2948,14 @@ function resolveMaxBumps() {
       a.position.z -= nz * overlap * 0.5;
       b.position.x += nx * overlap * 0.5;
       b.position.z += nz * overlap * 0.5;
-      a.speed -= MAX_CAR_BUMP_FORCE * 0.18;
-      b.speed += MAX_CAR_BUMP_FORCE * 0.18;
-      a.velocity.add(new THREE.Vector3(-nx, 0, -nz).multiplyScalar(5.5));
-      b.velocity.add(new THREE.Vector3(nx, 0, nz).multiplyScalar(5.5));
-      constrainMaxArenaCar(a);
-      constrainMaxArenaCar(b);
+      a.speed -= MAX_CAR_BUMP_FORCE * 0.12;
+      b.speed += MAX_CAR_BUMP_FORCE * 0.12;
+      a.velocity.add(new THREE.Vector3(-nx, 0, -nz).multiplyScalar(4.3));
+      b.velocity.add(new THREE.Vector3(nx, 0, nz).multiplyScalar(4.3));
+      spawnFx(a.position.clone().add(new THREE.Vector3(0, 0.45, 0)), new THREE.Vector3(-nx * 2, 1.4, -nz * 2), 0xffc476, 0.42, 0.22);
+      spawnFx(b.position.clone().add(new THREE.Vector3(0, 0.45, 0)), new THREE.Vector3(nx * 2, 1.4, nz * 2), 0x9fe7ff, 0.42, 0.22);
+      constrainMaxArenaCar(a, 0.016);
+      constrainMaxArenaCar(b, 0.016);
     }
   }
 
@@ -2841,13 +2970,15 @@ function resolveMaxBumps() {
     const nx = dx / dist;
     const ny = dy / dist;
     const nz = dz / dist;
-    const hitForce = Math.max(14, Math.abs(car.speed) * 0.85 + (input.boost ? 10 : 0));
+    const boostHit = car === player ? (input.boost ? 8 : 0) : 0;
+    const hitForce = Math.max(11, Math.abs(car.speed) * 0.68 + boostHit);
     maxMode.ballVelocity.x += nx * hitForce + car.velocity.x * 0.28;
-    maxMode.ballVelocity.y += Math.max(1.8, ny * 6.5 + 1.6);
+    maxMode.ballVelocity.y += Math.max(1.2, ny * 5.2 + 1.1);
     maxMode.ballVelocity.z += nz * hitForce + car.velocity.z * 0.28;
     maxMode.ball.position.x = car.position.x + nx * minDist;
     maxMode.ball.position.y = car.position.y + ny * minDist;
     maxMode.ball.position.z = car.position.z + nz * minDist;
+    spawnFx(maxMode.ball.position.clone(), new THREE.Vector3(nx * 2.4, 1.8, nz * 2.4), car.team === "red" ? 0xff8a7a : 0x7feaff, 0.5, 0.26);
   });
 }
 
@@ -2857,16 +2988,24 @@ function updateMaxBots(dt) {
     const target = getMaxBotTarget(bot);
     const desiredHeading = Math.atan2(target.x - bot.position.x, target.z - bot.position.z);
     const steer = THREE.MathUtils.clamp(angleDifference(bot.heading, desiredHeading), -1, 1);
-    bot.heading += steer * bot.turnRate * dt * 1.08;
-    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * 2.8);
+    bot.heading += steer * bot.turnRate * dt * 0.96;
+    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * 2.15);
     const toBall = bot.position.distanceTo(ballPos);
-    const attackSpeed = THREE.MathUtils.clamp(42 + (toBall > 26 ? 10 : 0), 26, 54);
-    bot.speed += (attackSpeed - bot.speed) * dt * 2.2;
+    const attackSpeedBase =
+      bot.role === "defender"
+        ? 31
+        : bot.role === "support"
+          ? 34
+          : bot.role === "wing"
+            ? 36
+            : 38;
+    const attackSpeed = THREE.MathUtils.clamp(attackSpeedBase + (toBall > 34 ? 4 : 0), 24, 42);
+    bot.speed += (attackSpeed - bot.speed) * dt * 1.8;
     const forward = new THREE.Vector3(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
     bot.velocity.copy(forward).multiplyScalar(bot.speed);
     updateVerticalPhysics(bot, dt);
     bot.update(dt);
-    constrainMaxArenaCar(bot);
+    constrainMaxArenaCar(bot, dt);
   });
 }
 
@@ -3071,8 +3210,8 @@ function updateBoostPads() {
 function updateCamera(dt) {
   const deviceAssist = getDeviceAssistTuning();
   const cameraTarget = player.position.clone();
-  const gameDistanceMult = isMaxMode() ? 1.16 : 1;
-  const gameHeightMult = isMaxMode() ? 1.08 : 1;
+  const gameDistanceMult = isMaxMode() ? 1.24 : 1;
+  const gameHeightMult = isMaxMode() ? 1.12 : 1;
   const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(
     -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult
   );
