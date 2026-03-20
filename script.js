@@ -668,6 +668,7 @@ const state = {
   devJumpActive: false,
   devJumpCarrySpeed: 0,
   backflipChainCount: 0,
+  ballCam: false,
   deviceInputMode: "auto",
   overtime: false,
   playerLoadoutStats: null,
@@ -2378,11 +2379,13 @@ function clearBotState() {
 function spawnMaxBots() {
   clearBotState();
   const botSpecs = [
-    { team: "blue", role: "defender", color: 0x5feaff, x: -64, z: -222, heading: 0 },
-    { team: "blue", role: "support", color: 0x7fdbff, x: 64, z: -176, heading: 0.04 },
-    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 228, heading: Math.PI },
-    { team: "red", role: "striker", color: 0xff6c6c, x: -74, z: 168, heading: Math.PI - 0.08 },
-    { team: "red", role: "wing", color: 0xff9778, x: 74, z: 168, heading: Math.PI + 0.08 }
+    { team: "blue", role: "goalie", color: 0xa5f4ff, x: 0, z: -326, heading: 0 },
+    { team: "blue", role: "support", color: 0x5feaff, x: -78, z: -210, heading: 0.05 },
+    { team: "blue", role: "wing", color: 0x7fdbff, x: 78, z: -182, heading: -0.03 },
+    { team: "red", role: "goalie", color: 0xffb0b0, x: 0, z: 326, heading: Math.PI },
+    { team: "red", role: "defender", color: 0xff8a8a, x: -88, z: 214, heading: Math.PI - 0.05 },
+    { team: "red", role: "striker", color: 0xff6c6c, x: 0, z: 154, heading: Math.PI },
+    { team: "red", role: "wing", color: 0xff9778, x: 88, z: 214, heading: Math.PI + 0.05 }
   ];
   botSpecs.forEach((spec) => {
     const bot = makeBot(spec.color);
@@ -2391,9 +2394,9 @@ function spawnMaxBots() {
     bot.setPosition(spec.x, getMaxSurfaceHeight(spec.x, spec.z), spec.z);
     bot.heading = spec.heading;
     bot.moveHeading = spec.heading;
-    bot.maxSpeed = 48;
-    bot.accel = 19;
-    bot.turnRate = 3.1;
+    bot.maxSpeed = spec.role === "goalie" ? 42 : 49;
+    bot.accel = spec.role === "goalie" ? 20 : 19.5;
+    bot.turnRate = spec.role === "goalie" ? 3.5 : 3.2;
     bot.maxDamage = 0;
     bot.maxStunTimer = 0;
     bot.maxBoostTimer = 0;
@@ -2436,6 +2439,19 @@ function getMaxBotTarget(bot) {
   const behindBall = futureBall.clone().addScaledVector(attackDir, -16);
   const sideBias = bot.role === "wing" ? (bot.position.x >= 0 ? 1 : -1) : bot.team === "blue" ? 1 : -1;
   const ownHalfBias = bot.team === "blue" ? -1 : 1;
+  const ownGoalFront = homeGoalZ + ownHalfBias * 24;
+
+  if (bot.role === "goalie") {
+    const isThreatening = bot.team === "blue" ? futureBall.z < -84 : futureBall.z > 84;
+    if (isThreatening) {
+      return new THREE.Vector3(
+        THREE.MathUtils.clamp(futureBall.x * 0.62, -MAX_GOAL_WIDTH + 12, MAX_GOAL_WIDTH - 12),
+        0,
+        THREE.MathUtils.clamp(THREE.MathUtils.lerp(ownGoalFront, futureBall.z, 0.28), -MAX_ARENA_HALF_LENGTH + 22, MAX_ARENA_HALF_LENGTH - 22)
+      );
+    }
+    return new THREE.Vector3(THREE.MathUtils.clamp(ball.x * 0.18, -18, 18), 0, ownGoalFront);
+  }
 
   if (bot.role === "defender") {
     if ((bot.team === "blue" && futureBall.z < 40) || (bot.team === "red" && futureBall.z > -40)) {
@@ -3024,13 +3040,15 @@ function scoreMaxGoal(team) {
   }
   const blueSpawns = [
     [0, -260],
-    [-64, -222],
-    [64, -176]
+    [0, -326],
+    [-78, -210],
+    [78, -182]
   ];
   const redSpawns = [
-    [0, 228],
-    [-74, 168],
-    [74, 168]
+    [0, 326],
+    [-88, 214],
+    [0, 154],
+    [88, 214]
   ];
   player.setPosition(blueSpawns[0][0], getMaxSurfaceHeight(...blueSpawns[0]), blueSpawns[0][1]);
   player.heading = 0;
@@ -3039,7 +3057,8 @@ function scoreMaxGoal(team) {
   player.verticalVel = 0;
   bots.forEach((bot, index) => {
     const list = bot.team === "blue" ? blueSpawns : redSpawns;
-    const slot = bot.team === "blue" ? Math.min(index + 1, list.length - 1) : Math.max(0, index - 2);
+    const teamIndex = bots.filter((candidate, candidateIndex) => candidate.team === bot.team && candidateIndex <= index).length - 1;
+    const slot = Math.min(teamIndex, list.length - 1);
     const [x, z] = list[slot] ?? list[list.length - 1];
     bot.setPosition(x, getMaxSurfaceHeight(x, z), z);
     bot.speed = 0;
@@ -3200,10 +3219,14 @@ function updateMaxBots(dt) {
     const target = getMaxBotTarget(bot);
     const desiredHeading = Math.atan2(target.x - bot.position.x, target.z - bot.position.z);
     const steer = THREE.MathUtils.clamp(angleDifference(bot.heading, desiredHeading), -1, 1);
-    bot.heading += steer * bot.turnRate * dt * 1.16;
-    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * 3.1);
+    const turnAuthority = bot.role === "goalie" ? 1.3 : 1.16;
+    bot.heading += steer * bot.turnRate * dt * turnAuthority;
+    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * (bot.role === "goalie" ? 4.2 : 3.3));
     const toBall = bot.position.distanceTo(ballPos);
     const attackSpeedBase =
+      bot.role === "goalie"
+        ? 30
+        :
       bot.role === "defender"
         ? 32
         : bot.role === "support"
@@ -3211,12 +3234,20 @@ function updateMaxBots(dt) {
           : bot.role === "wing"
             ? 40
             : 43;
-    const wantsBoost = toBall > 46 || Math.abs(ballPos.z - bot.position.z) > 140;
+    const wantsBoost =
+      bot.role !== "goalie" &&
+      (toBall > 46 || Math.abs(ballPos.z - bot.position.z) > 140 || (bot.team === "red" && ballPos.z < 40) || (bot.team === "blue" && ballPos.z > -40));
     if (wantsBoost && Math.random() < dt * 1.8) {
       bot.maxBoostTimer = 0.5;
     }
-    const attackSpeed = THREE.MathUtils.clamp(attackSpeedBase + (toBall > 52 ? 8 : 0) + ((bot.maxBoostTimer ?? 0) > 0 ? 9 : 0), 28, 56);
-    bot.speed += (attackSpeed - bot.speed) * dt * 2.5;
+    const attackSpeed = THREE.MathUtils.clamp(
+      attackSpeedBase +
+        (toBall > 52 ? (bot.role === "goalie" ? 3 : 8) : 0) +
+        ((bot.maxBoostTimer ?? 0) > 0 ? 9 : 0),
+      24,
+      bot.role === "goalie" ? 42 : 56
+    );
+    bot.speed += (attackSpeed - bot.speed) * dt * (bot.role === "goalie" ? 3.1 : 2.7);
     const forward = new THREE.Vector3(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
     bot.velocity.copy(forward).multiplyScalar(bot.speed);
     const separation = new THREE.Vector3();
@@ -3232,6 +3263,10 @@ function updateMaxBots(dt) {
     if (separation.lengthSq() > 0) {
       separation.normalize().multiplyScalar(6.2);
       bot.velocity.add(separation);
+    }
+    if (bot.role === "goalie") {
+      bot.velocity.x *= 1.16;
+      bot.velocity.z *= 0.94;
     }
     updateVerticalPhysics(bot, dt);
     bot.update(dt);
@@ -3446,20 +3481,27 @@ function updateCamera(dt) {
   const cameraTarget = player.position.clone();
   const gameDistanceMult = isMaxMode() ? 1.36 : 1;
   const gameHeightMult = isMaxMode() ? 1.18 : 1;
-  const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(
-    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult
+  const targetFocus = state.ballCam && isMaxMode() && maxMode.ball ? maxMode.ball.position.clone() : player.position.clone();
+  const focusHeading = state.ballCam && isMaxMode() && maxMode.ball
+    ? Math.atan2(maxMode.ball.position.x - player.position.x, maxMode.ball.position.z - player.position.z)
+    : player.heading;
+  const back = new THREE.Vector3(Math.sin(focusHeading), 0, Math.cos(focusHeading)).multiplyScalar(
+    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult * (state.ballCam && isMaxMode() ? 1.18 : 1)
   );
   const desired = cameraTarget
     .clone()
     .add(back)
-    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult, 0));
+    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult * (state.ballCam && isMaxMode() ? 1.14 : 1), 0));
 
   if (input.focusCamera || settings.cameraFocus) {
     desired.add(new THREE.Vector3(0, 4 * deviceAssist.cameraHeightMult, 0));
   }
 
   camera.position.lerp(desired, dt * 3.2);
-  camera.lookAt(player.position.clone().add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, 0)));
+  const lookTarget = state.ballCam && isMaxMode() && maxMode.ball
+    ? player.position.clone().lerp(targetFocus, 0.72).add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT + 0.8, 0))
+    : player.position.clone().add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, 0));
+  camera.lookAt(lookTarget);
 }
 
 function updateCombo(dt, steer) {
@@ -4040,6 +4082,10 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "KeyC") input.backflip = true;
   if (event.code === "KeyX") attemptDevJump();
   if (event.code === "KeyC") attemptBackflip();
+  if (event.code === "KeyL" && isMaxMode() && !event.repeat) {
+    state.ballCam = !state.ballCam;
+    setEffectToast(state.ballCam ? "Ball Cam On" : "Ball Cam Off");
+  }
   if (event.code === "KeyR") dispatchGameAction("restart-level");
   if (event.code === "KeyM") setMenuOpen(true);
   if (event.code === "Enter") {
