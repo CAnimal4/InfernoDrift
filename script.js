@@ -53,11 +53,19 @@ const devBotSpeedValue = document.getElementById("dev-bot-speed-value");
 const devInfiniteBoost = document.getElementById("dev-infinite-boost");
 const devInvulnerable = document.getElementById("dev-invulnerable");
 const devFreezeBots = document.getElementById("dev-freeze-bots");
+const devWorldSelect = document.getElementById("dev-world-select");
+const devLevelSelect = document.getElementById("dev-level-select");
+const devDebugHud = document.getElementById("dev-debug-hud");
+const devDebugLogs = document.getElementById("dev-debug-logs");
+const devId33Panel = document.getElementById("dev-id33-panel");
+const devMaxPanel = document.getElementById("dev-max-panel");
 const devRefillBoost = document.getElementById("dev-refill-boost");
 const devRefillShield = document.getElementById("dev-refill-shield");
 const devCoolBots = document.getElementById("dev-cool-bots");
 const devHeal = document.getElementById("dev-heal");
 const devClearLevel = document.getElementById("dev-clear-level");
+const devResetMatch = document.getElementById("dev-reset-match");
+const devResetScore = document.getElementById("dev-reset-score");
 const devResetTuning = document.getElementById("dev-reset-tuning");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
@@ -138,7 +146,7 @@ const AIRBORNE_BOOST_MPH = 348;
 const AIRBORNE_SPEED_BONUS = 6.5;
 const AIRBORNE_BOOST_ACCEL_MULT = 1.14;
 const AIRBORNE_BOOST_CAP_MULT = 1.18;
-const DEV_MODE_PASSWORD = "ibelikesheesh";
+const DEV_MODE_PASSWORDS = ["ibelikesheesh", "pandamo2011"];
 const BACKFLIP_DURATION = 0.78;
 const BACKFLIP_RECOVERY_DURATION = 0.3;
 const SAVE_STORAGE_KEY = "infernoDrift3.save.v1";
@@ -146,11 +154,11 @@ const GAME_MODE_ID33 = "infernodrift33";
 const GAME_MODE_MAX1 = "infernodriftmax1";
 const MAX_MODE_MATCH_TIME = 180;
 const MAX_MODE_GOAL_TARGET = 5;
-const MAX_STADIUM_RADIUS = 242;
-const MAX_STADIUM_FLOOR_RADIUS = 156;
-const MAX_STADIUM_WALL_HEIGHT = 34;
+const MAX_STADIUM_RADIUS = 310;
+const MAX_STADIUM_FLOOR_RADIUS = 208;
+const MAX_STADIUM_WALL_HEIGHT = 40;
 const MAX_STADIUM_RIM_START = 0.9;
-const MAX_GOAL_WIDTH = 30;
+const MAX_GOAL_WIDTH = 42;
 const MAX_GOAL_LINE_Z = MAX_STADIUM_RADIUS - 18;
 const MAX_BALL_RADIUS = 4.2;
 const MAX_BALL_DRAG = 0.996;
@@ -674,6 +682,23 @@ const maxMode = {
   lastScoredTeam: null
 };
 
+function setDebugFlagsEnabled(enabled) {
+  DEBUG_FLAGS.enabled = enabled;
+  if (!enabled) {
+    DEBUG_FLAGS.input = false;
+    DEBUG_FLAGS.world = false;
+    DEBUG_FLAGS.ramps = false;
+    DEBUG_FLAGS.hits = false;
+    DEBUG_FLAGS.menu = false;
+    DEBUG_FLAGS.powerups = false;
+    DEBUG_FLAGS.minimap = false;
+    return;
+  }
+  DEBUG_FLAGS.world = true;
+  DEBUG_FLAGS.menu = true;
+  DEBUG_FLAGS.hits = true;
+}
+
 function isCarAirborne(car) {
   return car.position.y > 0.18 || car.verticalVel > 0.3;
 }
@@ -1012,6 +1037,7 @@ function loadPersistentState() {
 }
 
 function refreshDevModeUi() {
+  const maxModeActive = isMaxMode();
   if (devModeToggle) devModeToggle.checked = settings.devMode;
   document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
@@ -1027,6 +1053,8 @@ function refreshDevModeUi() {
   if (devTools) {
     devTools.hidden = !settings.devMode;
   }
+  if (devId33Panel) devId33Panel.hidden = !settings.devMode || maxModeActive;
+  if (devMaxPanel) devMaxPanel.hidden = !settings.devMode || !maxModeActive;
   if (devPlayerSpeed) {
     devPlayerSpeed.value = String(Math.round(devTuning.playerSpeedMult * 100));
   }
@@ -1048,15 +1076,44 @@ function refreshDevModeUi() {
   if (devFreezeBots) {
     devFreezeBots.checked = settings.devMode && devTuning.freezeBots;
   }
+  if (devDebugHud) {
+    devDebugHud.checked = DEBUG_FLAGS.enabled;
+  }
+  if (devDebugLogs) {
+    devDebugLogs.checked = DEBUG_FLAGS.enabled && DEBUG_FLAGS.world && DEBUG_FLAGS.menu && DEBUG_FLAGS.hits;
+  }
   if (devModeHint) {
     devModeHint.hidden = !settings.devMode;
     devModeHint.textContent = settings.devMode
-      ? "Dev Mode enabled. Tune player and bot speed, freeze bots, quick-clear levels, and unlock the Games tab."
+      ? maxModeActive
+        ? "Dev Mode enabled. Arena tools, debug toggles, score reset, and the Games tab are unlocked for Max."
+        : "Dev Mode enabled. Tune player and bot speed, jump between campaign levels, use debug tools, and unlock the Games tab."
       : "Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.";
   }
   if (devModeStatus) {
     devModeStatus.hidden = !settings.devMode;
     devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
+  }
+  if (devWorldSelect) {
+    devWorldSelect.innerHTML = "";
+    worldData.forEach((world, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `World ${index + 1} - ${world.name}`;
+      option.selected = index === state.worldIndex;
+      devWorldSelect.appendChild(option);
+    });
+  }
+  if (devLevelSelect) {
+    devLevelSelect.innerHTML = "";
+    const world = worldData[state.worldIndex];
+    world.levels.forEach((level, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `Level ${index + 1} - ${level.name}`;
+      option.selected = index === state.levelIndex;
+      devLevelSelect.appendChild(option);
+    });
   }
   refreshGamesUi();
 }
@@ -1081,6 +1138,14 @@ function setDevTuningValue(key, value) {
   applyRuntimePlayerStats();
   refreshDevModeUi();
   savePersistentState();
+}
+
+function resetMaxMatch() {
+  maxMode.blueScore = 0;
+  maxMode.redScore = 0;
+  state.overtime = false;
+  state.timeLeft = MAX_MODE_MATCH_TIME;
+  startRun(true);
 }
 
 function refreshGamesUi() {
@@ -1108,6 +1173,15 @@ function refreshGamesUi() {
     modeSettingsHint.textContent = maxModeActive
       ? "Max settings: device, steering feel, and camera still apply here. Max ignores hunter difficulty and campaign ramp density."
       : "Campaign settings: hunter difficulty, ramp density, and free-play options.";
+  }
+  if (devClearLevel) {
+    devClearLevel.textContent = maxModeActive ? "Golden Goal" : "Clear Level";
+  }
+  if (devResetMatch) {
+    devResetMatch.hidden = !maxModeActive;
+  }
+  if (devResetScore) {
+    devResetScore.hidden = !maxModeActive;
   }
 }
 
@@ -1919,7 +1993,7 @@ function applyLevelIdentity(world) {
 function getMaxSurfaceState(x, z) {
   const radius = Math.hypot(x, z);
   if (radius <= MAX_STADIUM_FLOOR_RADIUS) {
-    return { radius, t: 0, height: 0, slope: 0 };
+    return { radius, t: 0, height: 0, slope: 0, tangentPitch: 0 };
   }
   const rawT = THREE.MathUtils.clamp((radius - MAX_STADIUM_FLOOR_RADIUS) / (MAX_STADIUM_RADIUS - MAX_STADIUM_FLOOR_RADIUS), 0, 1);
   const t = rawT * rawT * (3 - 2 * rawT);
@@ -1928,7 +2002,8 @@ function getMaxSurfaceState(x, z) {
     radius,
     t,
     height: t * MAX_STADIUM_WALL_HEIGHT,
-    slope
+    slope,
+    tangentPitch: Math.atan(slope)
   };
 }
 
@@ -1984,10 +2059,10 @@ function buildMaxArena() {
   const bowlProfile = [
     new THREE.Vector2(0, 0),
     new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS, 0),
-    new THREE.Vector2(176, 1.2),
-    new THREE.Vector2(198, 3.8),
-    new THREE.Vector2(220, 12.5),
-    new THREE.Vector2(232, 23.5),
+    new THREE.Vector2(228, 0.8),
+    new THREE.Vector2(250, 2.8),
+    new THREE.Vector2(274, 10.5),
+    new THREE.Vector2(292, 23.5),
     new THREE.Vector2(MAX_STADIUM_RADIUS, MAX_STADIUM_WALL_HEIGHT)
   ];
   const bowl = new THREE.Mesh(
@@ -2006,8 +2081,8 @@ function buildMaxArena() {
     new THREE.LatheGeometry(
       [
         new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS + 10, 0.2),
-        new THREE.Vector2(184, 2.8),
-        new THREE.Vector2(214, 14),
+        new THREE.Vector2(236, 2.2),
+        new THREE.Vector2(276, 16),
         new THREE.Vector2(MAX_STADIUM_RADIUS - 4, MAX_STADIUM_WALL_HEIGHT - 1.8)
       ],
       64
@@ -2063,14 +2138,18 @@ function buildMaxArena() {
 
   [
     [0, 0],
-    [-110, 0],
-    [110, 0],
-    [-152, -96],
-    [152, -96],
-    [-152, 96],
-    [152, 96],
-    [0, -152],
-    [0, 152]
+    [-140, 0],
+    [140, 0],
+    [-196, -120],
+    [196, -120],
+    [-196, 120],
+    [196, 120],
+    [0, -196],
+    [0, 196],
+    [-86, -176],
+    [86, -176],
+    [-86, 176],
+    [86, 176]
   ].forEach(([x, z]) => {
     const pad = makeBoostPad();
     pad.position.set(x, getMaxSurfaceHeight(x, z), z);
@@ -2206,7 +2285,7 @@ function getWorld() {
       fog: 0x14304a,
       sky: 0x22486c,
       ground: 0x17314a,
-      levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 38, spawnRate: 1 }]
+      levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 44, spawnRate: 1 }]
     };
   }
   return worldData[state.worldIndex];
@@ -2239,7 +2318,7 @@ function resetLevel() {
   state.overtime = false;
 
   const spawnX = isMaxMode() ? 0 : PLAYER_SPAWN_X;
-  const spawnZ = isMaxMode() ? -168 : PLAYER_SPAWN_Z;
+  const spawnZ = isMaxMode() ? -220 : PLAYER_SPAWN_Z;
   player.setPosition(spawnX, isMaxMode() ? getMaxSurfaceHeight(spawnX, spawnZ) : 0, spawnZ);
   player.velocity.set(0, 0, 0);
   player.speed = 0;
@@ -2283,11 +2362,11 @@ function clearBotState() {
 function spawnMaxBots() {
   clearBotState();
   const botSpecs = [
-    { team: "blue", role: "defender", color: 0x5feaff, x: -32, z: -136, heading: 0 },
-    { team: "blue", role: "support", color: 0x7fdbff, x: 32, z: -114, heading: 0.04 },
-    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 146, heading: Math.PI },
-    { team: "red", role: "striker", color: 0xff6c6c, x: -38, z: 108, heading: Math.PI - 0.08 },
-    { team: "red", role: "wing", color: 0xff9778, x: 38, z: 108, heading: Math.PI + 0.08 }
+    { team: "blue", role: "defender", color: 0x5feaff, x: -42, z: -178, heading: 0 },
+    { team: "blue", role: "support", color: 0x7fdbff, x: 42, z: -148, heading: 0.04 },
+    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 188, heading: Math.PI },
+    { team: "red", role: "striker", color: 0xff6c6c, x: -48, z: 142, heading: Math.PI - 0.08 },
+    { team: "red", role: "wing", color: 0xff9778, x: 48, z: 142, heading: Math.PI + 0.08 }
   ];
   botSpecs.forEach((spec) => {
     const bot = makeBot(spec.color);
@@ -2296,9 +2375,9 @@ function spawnMaxBots() {
     bot.setPosition(spec.x, getMaxSurfaceHeight(spec.x, spec.z), spec.z);
     bot.heading = spec.heading;
     bot.moveHeading = spec.heading;
-    bot.maxSpeed = 40;
-    bot.accel = 16;
-    bot.turnRate = 2.2;
+    bot.maxSpeed = 46;
+    bot.accel = 18;
+    bot.turnRate = 2.7;
     bots.push(bot);
   });
   maxMode.teamCars = [player, ...bots];
@@ -2309,7 +2388,9 @@ function constrainMaxArenaCar(car, dt = 0.016) {
   const radius = Math.max(surface.radius, 0.001);
   const nx = car.position.x / radius;
   const nz = car.position.z / radius;
-  const limit = MAX_STADIUM_RADIUS - 2.4;
+  const tx = -nz;
+  const tz = nx;
+  const limit = MAX_STADIUM_RADIUS - 5;
 
   if (surface.radius > limit) {
     car.position.x = nx * limit;
@@ -2322,19 +2403,25 @@ function constrainMaxArenaCar(car, dt = 0.016) {
     car.speed *= 0.98;
   }
 
-  const groundedToWall = car.position.y <= surface.height + 0.65 && car.verticalVel <= 1.6;
+  const groundedToWall = car.position.y <= surface.height + 1.05 && car.verticalVel <= 2.4;
   if (groundedToWall) {
-    car.position.y = THREE.MathUtils.lerp(car.position.y, surface.height, Math.min(1, dt * 14));
+    car.position.y = THREE.MathUtils.lerp(car.position.y, surface.height, Math.min(1, dt * 18));
     car.verticalVel = Math.min(car.verticalVel, 0);
+    const tangentVelocity = car.velocity.x * tx + car.velocity.z * tz;
+    const inwardVelocity = car.velocity.x * nx + car.velocity.z * nz;
+    const attachPull = Math.min(1, 0.16 + surface.t * 0.28);
+    car.velocity.x = tx * tangentVelocity + nx * inwardVelocity * attachPull;
+    car.velocity.z = tz * tangentVelocity + nz * inwardVelocity * attachPull;
     if (surface.t > MAX_STADIUM_RIM_START) {
-      const rimPush = THREE.MathUtils.mapLinear(surface.t, MAX_STADIUM_RIM_START, 1, 4, 10);
-      car.velocity.x -= nx * rimPush * dt * 9;
-      car.velocity.z -= nz * rimPush * dt * 9;
-      car.speed = Math.max(0, car.speed - rimPush * dt * 1.8);
+      const rimPush = THREE.MathUtils.mapLinear(surface.t, MAX_STADIUM_RIM_START, 1, 2.2, 5.6);
+      car.velocity.x -= nx * rimPush * dt * 5.5;
+      car.velocity.z -= nz * rimPush * dt * 5.5;
+      car.speed = Math.max(0, car.speed - rimPush * dt * 0.9);
     }
   }
 
   car.group.position.copy(car.position);
+  car.visualRoot.rotation.z = THREE.MathUtils.lerp(car.visualRoot.rotation.z, -nx * surface.t * 0.24, Math.min(1, dt * 6));
 }
 
 function getMaxBotTarget(bot) {
@@ -2909,14 +2996,14 @@ function scoreMaxGoal(team) {
     return;
   }
   const blueSpawns = [
-    [0, -168],
-    [-32, -136],
-    [32, -114]
+    [0, -220],
+    [-42, -178],
+    [42, -148]
   ];
   const redSpawns = [
-    [0, 146],
-    [-38, 108],
-    [38, 108]
+    [0, 188],
+    [-48, 142],
+    [48, 142]
   ];
   player.setPosition(blueSpawns[0][0], getMaxSurfaceHeight(...blueSpawns[0]), blueSpawns[0][1]);
   player.heading = 0;
@@ -3014,13 +3101,13 @@ function resolveMaxBumps() {
     const dz = maxMode.ball.position.z - car.position.z;
     const dy = maxMode.ball.position.y - car.position.y;
     const dist = Math.hypot(dx, dz, dy) || 0.001;
-    const minDist = MAX_BALL_RADIUS + CAR_RADIUS + 1.25;
+    const minDist = MAX_BALL_RADIUS + CAR_RADIUS + 2.2;
     if (dist >= minDist) return;
     const nx = dx / dist;
     const ny = dy / dist;
     const nz = dz / dist;
     const boostHit = car === player ? (input.boost ? 8 : 0) : 0;
-    const hitForce = Math.max(11, Math.abs(car.speed) * 0.68 + boostHit);
+    const hitForce = Math.max(13, Math.abs(car.speed) * 0.76 + boostHit);
     maxMode.ballVelocity.x += nx * hitForce + car.velocity.x * 0.28;
     maxMode.ballVelocity.y += Math.max(1.2, ny * 5.2 + 1.1);
     maxMode.ballVelocity.z += nz * hitForce + car.velocity.z * 0.28;
@@ -3042,14 +3129,14 @@ function updateMaxBots(dt) {
     const toBall = bot.position.distanceTo(ballPos);
     const attackSpeedBase =
       bot.role === "defender"
-        ? 31
+        ? 34
         : bot.role === "support"
-          ? 34
+          ? 38
           : bot.role === "wing"
-            ? 36
-            : 38;
-    const attackSpeed = THREE.MathUtils.clamp(attackSpeedBase + (toBall > 34 ? 4 : 0), 24, 42);
-    bot.speed += (attackSpeed - bot.speed) * dt * 1.8;
+            ? 41
+            : 44;
+    const attackSpeed = THREE.MathUtils.clamp(attackSpeedBase + (toBall > 52 ? 6 : 0), 28, 50);
+    bot.speed += (attackSpeed - bot.speed) * dt * 2.1;
     const forward = new THREE.Vector3(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
     bot.velocity.copy(forward).multiplyScalar(bot.speed);
     updateVerticalPhysics(bot, dt);
@@ -4086,7 +4173,7 @@ if (devModeToggle) {
     const wantsDevMode = !settings.devMode;
     if (wantsDevMode) {
       const password = window.prompt("Enter Dev Mode password");
-      if ((password ?? "").trim().toLowerCase() !== DEV_MODE_PASSWORD) {
+      if (!DEV_MODE_PASSWORDS.includes((password ?? "").trim().toLowerCase())) {
         setDevMode(false, { save: false, announce: false });
         setEffectToast("Dev Mode Locked");
         return;
@@ -4142,6 +4229,53 @@ if (devFreezeBots) {
   });
 }
 
+if (devWorldSelect) {
+  devWorldSelect.addEventListener("change", (event) => {
+    if (!settings.devMode || isMaxMode()) return;
+    state.worldIndex = clampWorldIndex(Number(event.target.value));
+    state.levelIndex = 0;
+    refreshDevModeUi();
+    savePersistentState();
+    if (state.running) resetLevel();
+  });
+}
+
+if (devLevelSelect) {
+  devLevelSelect.addEventListener("change", (event) => {
+    if (!settings.devMode || isMaxMode()) return;
+    state.levelIndex = clampLevelIndex(state.worldIndex, Number(event.target.value));
+    refreshDevModeUi();
+    savePersistentState();
+    if (state.running) resetLevel();
+  });
+}
+
+if (devDebugHud) {
+  devDebugHud.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDebugFlagsEnabled(event.target.checked);
+    refreshDevModeUi();
+  });
+}
+
+if (devDebugLogs) {
+  devDebugLogs.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    const enabled = event.target.checked;
+    DEBUG_FLAGS.enabled = enabled || DEBUG_FLAGS.enabled;
+    DEBUG_FLAGS.world = enabled;
+    DEBUG_FLAGS.menu = enabled;
+    DEBUG_FLAGS.hits = enabled;
+    DEBUG_FLAGS.ramps = enabled;
+    DEBUG_FLAGS.powerups = enabled;
+    DEBUG_FLAGS.minimap = enabled;
+    if (!enabled && !devDebugHud?.checked) {
+      setDebugFlagsEnabled(false);
+    }
+    refreshDevModeUi();
+  });
+}
+
 bindPressAction(devRefillBoost, () => {
   if (!settings.devMode) return;
   state.boost = 1;
@@ -4174,7 +4308,26 @@ bindPressAction(devHeal, () => {
 
 bindPressAction(devClearLevel, () => {
   if (!settings.devMode) return;
-  completeLevel();
+  if (isMaxMode()) {
+    maxMode.blueScore = MAX_MODE_GOAL_TARGET - 1;
+    scoreMaxGoal("blue");
+  } else {
+    completeLevel();
+  }
+});
+
+bindPressAction(devResetMatch, () => {
+  if (!settings.devMode || !isMaxMode()) return;
+  resetMaxMatch();
+  setEffectToast("Arena Reset");
+});
+
+bindPressAction(devResetScore, () => {
+  if (!settings.devMode || !isMaxMode()) return;
+  maxMode.blueScore = 0;
+  maxMode.redScore = 0;
+  state.overtime = false;
+  setEffectToast("Score Reset");
 });
 
 bindPressAction(devResetTuning, () => {
