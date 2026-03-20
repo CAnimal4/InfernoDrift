@@ -337,6 +337,11 @@ canvas {
   gap: 12px;
 }
 
+.dev-games-inline {
+  display: grid;
+  gap: 10px;
+}
+
 .dev-tools-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -360,6 +365,10 @@ canvas {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.games-grid-inline {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .game-card {
