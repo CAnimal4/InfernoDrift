@@ -127,7 +127,7 @@
           </div>
           <div class="menu-tabs">
             <button class="tab-btn active" data-tab="settings" type="button">Settings</button>
-            <button class="tab-btn" id="games-tab-btn" data-tab="games" type="button" hidden>Games</button>
+            <button class="tab-btn dev-only-tab" id="games-tab-btn" data-tab="games" type="button">Games</button>
             <button class="tab-btn" data-tab="customize" type="button">Customize</button>
             <button class="tab-btn" data-tab="controls" type="button">Controls</button>
             <button class="tab-btn" data-tab="howto" type="button">How to Play</button>
@@ -175,27 +175,8 @@
                 <input id="dev-mode-toggle" type="checkbox" />
               </label>
               <p class="hint" id="dev-mode-status" hidden>Status: Disabled</p>
-              <p class="hint" id="dev-mode-hint" hidden>Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.</p>
+              <p class="hint" id="dev-mode-hint" hidden>Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, quick developer actions, and the Games tab.</p>
               <div class="dev-tools" id="dev-tools" hidden>
-                <div class="dev-games-inline">
-                  <p class="hint">Games</p>
-                  <div class="games-grid games-grid-inline">
-                    <button class="game-card active" data-game-mode="infernodrift33" type="button">
-                      <img src="output/imagegen/infernodrift33-card.svg" alt="InfernoDrift 3.3 card art" />
-                      <div class="game-card-copy">
-                        <strong>InfernoDrift 3.3</strong>
-                        <span>Survival drift campaign with handcrafted level twists.</span>
-                      </div>
-                    </button>
-                    <button class="game-card" data-game-mode="infernodriftmax1" type="button">
-                      <img src="output/imagegen/infernodriftmax1-card.svg" alt="InfernoDriftMax 1 card art" />
-                      <div class="game-card-copy">
-                        <strong>InfernoDriftMax 1</strong>
-                        <span>Blue vs red arena battles with wall-driving, bumps, and goals.</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
                 <div class="dev-tools-grid">
                   <label class="field">
                     <span>Player Speed <strong id="dev-player-speed-value">100%</strong></span>

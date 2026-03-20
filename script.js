@@ -1010,13 +1010,8 @@ function refreshDevModeUi() {
   if (devModeToggle) devModeToggle.checked = settings.devMode;
   document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
-  if (gamesTabBtn) {
-    gamesTabBtn.hidden = !settings.devMode;
-    gamesTabBtn.style.display = settings.devMode ? "" : "none";
-    gamesTabBtn.setAttribute("aria-hidden", settings.devMode ? "false" : "true");
-    if (!settings.devMode && gamesTabBtn.classList.contains("active")) {
-      setActiveTab("settings");
-    }
+  if (gamesTabBtn && !settings.devMode && gamesTabBtn.classList.contains("active")) {
+    setActiveTab("settings");
   }
   if (touchJump) {
     touchJump.hidden = !input.touchEnabled;
@@ -1092,6 +1087,9 @@ function refreshGamesUi() {
   });
   if (gameModeHint) {
     gameModeHint.textContent = `Current game: ${activeMeta.title} - ${activeMeta.subtitle}`;
+  }
+  if (startBtn) {
+    startBtn.textContent = isMaxMode() ? "Start InfernoDriftMax 1" : "Start InfernoDrift 3.3";
   }
 }
 
@@ -3854,8 +3852,10 @@ tabButtons.forEach((button) => {
 gameCards.forEach((card) => {
   bindPressAction(card, () => {
     if (!settings.devMode) return;
-    setActiveGameMode(card.dataset.gameMode, { save: true, reset: false });
-    setEffectToast(getActiveGameMeta().title);
+    const nextMode = card.dataset.gameMode;
+    setActiveGameMode(nextMode, { save: true, reset: state.running });
+    setActiveTab("games");
+    setEffectToast(nextMode === GAME_MODE_MAX1 ? "InfernoDriftMax 1 Ready" : "InfernoDrift 3.3 Ready");
   });
 });
 
