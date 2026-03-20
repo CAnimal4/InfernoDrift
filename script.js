@@ -3481,25 +3481,23 @@ function updateCamera(dt) {
   const cameraTarget = player.position.clone();
   const gameDistanceMult = isMaxMode() ? 1.36 : 1;
   const gameHeightMult = isMaxMode() ? 1.18 : 1;
-  const targetFocus = state.ballCam && isMaxMode() && maxMode.ball ? maxMode.ball.position.clone() : player.position.clone();
-  const focusHeading = state.ballCam && isMaxMode() && maxMode.ball
-    ? Math.atan2(maxMode.ball.position.x - player.position.x, maxMode.ball.position.z - player.position.z)
-    : player.heading;
-  const back = new THREE.Vector3(Math.sin(focusHeading), 0, Math.cos(focusHeading)).multiplyScalar(
-    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult * (state.ballCam && isMaxMode() ? 1.18 : 1)
+  const ballCamActive = state.ballCam && isMaxMode() && maxMode.ball;
+  const backHeading = player.heading;
+  const back = new THREE.Vector3(Math.sin(backHeading), 0, Math.cos(backHeading)).multiplyScalar(
+    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult * (ballCamActive ? 0.92 : 1)
   );
   const desired = cameraTarget
     .clone()
     .add(back)
-    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult * (state.ballCam && isMaxMode() ? 1.14 : 1), 0));
+    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult * (ballCamActive ? 1.08 : 1), 0));
 
   if (input.focusCamera || settings.cameraFocus) {
     desired.add(new THREE.Vector3(0, 4 * deviceAssist.cameraHeightMult, 0));
   }
 
   camera.position.lerp(desired, dt * 3.2);
-  const lookTarget = state.ballCam && isMaxMode() && maxMode.ball
-    ? player.position.clone().lerp(targetFocus, 0.72).add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT + 0.8, 0))
+  const lookTarget = ballCamActive
+    ? maxMode.ball.position.clone().add(new THREE.Vector3(0, 1.4, 0))
     : player.position.clone().add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, 0));
   camera.lookAt(lookTarget);
 }
