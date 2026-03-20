@@ -16,6 +16,7 @@ const retryBtn = document.getElementById("retry-btn");
 const boostBar = document.getElementById("boost-bar");
 const shieldBar = document.getElementById("shield-bar");
 const statusLabelNodes = document.querySelectorAll(".status .pill .label");
+const debugHud = document.getElementById("debug-hud");
 const progressBar = document.getElementById("progress");
 const hudWorld = document.getElementById("hud-world");
 const hudLevel = document.getElementById("hud-level");
@@ -715,6 +716,10 @@ function setDebugFlagsEnabled(enabled) {
 
 function isCarAirborne(car) {
   return car.position.y > 0.18 || car.verticalVel > 0.3;
+}
+
+function getCollisionRadius(car) {
+  return car?.collisionRadius ?? (car?.isBot ? BOT_RADIUS : CAR_RADIUS);
 }
 
 function isMaxMode() {
@@ -1510,6 +1515,7 @@ class Car {
     this.normalGrip = 3.4;
     this.verticalVel = 0;
     this.isBot = isBot;
+    this.collisionRadius = isBot ? BOT_RADIUS : CAR_RADIUS;
     this.boosted = false;
     this.target = null;
     this.lastRampTime = 0;
@@ -1524,6 +1530,19 @@ class Car {
     this.maxStunTimer = 0;
     this.maxBoostTimer = 0;
     this.maxBotLungeTimer = 0;
+    this.healthBarGroup = new THREE.Group();
+    this.healthBarBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.1, 0.18),
+      new THREE.MeshBasicMaterial({ color: 0x09111a, transparent: true, opacity: 0.55, depthWrite: false })
+    );
+    this.healthBarFill = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.02, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0x8dffb2, transparent: true, opacity: 0.95, depthWrite: false })
+    );
+    this.healthBarFill.position.z = 0.01;
+    this.healthBarGroup.add(this.healthBarBg, this.healthBarFill);
+    this.healthBarGroup.visible = false;
+    scene.add(this.healthBarGroup);
 
     this.rebuildVisual({
       primary: color,
@@ -1677,6 +1696,8 @@ class Car {
       this.visualRoot.rotation.z = THREE.MathUtils.lerp(this.visualRoot.rotation.z, 0, Math.min(1, dt * 12));
     }
     this.updateWheels(this.speed * dt);
+    this.healthBarGroup.position.set(this.position.x, this.position.y + 2.8, this.position.z);
+    this.healthBarGroup.quaternion.copy(camera.quaternion);
   }
 
   triggerBackflip() {
@@ -1685,6 +1706,19 @@ class Car {
     this.backflipRecovery = 0;
     this.visualRoot.rotation.x = 0;
     this.visualRoot.rotation.z = 0;
+  }
+
+  setHealthBar(percent, visible) {
+    this.healthBarGroup.visible = visible;
+    if (!visible) return;
+    const clamped = THREE.MathUtils.clamp(percent, 0, 1);
+    this.healthBarFill.scale.x = Math.max(0.001, clamped);
+    this.healthBarFill.position.x = -1.01 + clamped * 1.01;
+    const color =
+      clamped > 0.6 ? 0x8dffb2 :
+      clamped > 0.3 ? 0xffd86d :
+      0xff7979;
+    this.healthBarFill.material.color.setHex(color);
   }
 }
 
@@ -2542,7 +2576,10 @@ function resetLevel() {
 }
 
 function clearBotState() {
-  bots.forEach((bot) => scene.remove(bot.group));
+  bots.forEach((bot) => {
+    scene.remove(bot.group);
+    scene.remove(bot.healthBarGroup);
+  });
   bots.splice(0, bots.length);
   maxMode.teamCars = [];
 }
@@ -2568,6 +2605,10 @@ function spawnMaxBots() {
     bot.maxSpeed = spec.role === "goalie" ? 42 : 49;
     bot.accel = spec.role === "goalie" ? 20 : 19.5;
     bot.turnRate = spec.role === "goalie" ? 3.5 : 3.2;
+    if (spec.role === "goalie") {
+      bot.visualRoot.scale.setScalar(1.15);
+      bot.collisionRadius = 1.75;
+    }
     bot.maxHealth = MAX_HEALTH_MAX;
     bot.maxStunTimer = 0;
     bot.maxBoostTimer = 0;
@@ -2617,9 +2658,9 @@ function getMaxBotTarget(bot) {
     const isThreatening = bot.team === "blue" ? futureBall.z < -84 : futureBall.z > 84;
     if (isThreatening) {
       return new THREE.Vector3(
-        THREE.MathUtils.clamp(futureBall.x * 0.62, -MAX_GOAL_WIDTH + 12, MAX_GOAL_WIDTH - 12),
+        THREE.MathUtils.clamp(futureBall.x * 0.72, -MAX_GOAL_WIDTH + 8, MAX_GOAL_WIDTH - 8),
         0,
-        THREE.MathUtils.clamp(THREE.MathUtils.lerp(ownGoalFront, futureBall.z, 0.28), -MAX_ARENA_HALF_LENGTH + 22, MAX_ARENA_HALF_LENGTH - 22)
+        THREE.MathUtils.clamp(THREE.MathUtils.lerp(ownGoalFront, futureBall.z, 0.36), -MAX_ARENA_HALF_LENGTH + 22, MAX_ARENA_HALF_LENGTH - 22)
       );
     }
     return new THREE.Vector3(THREE.MathUtils.clamp(ball.x * 0.18, -18, 18), 0, ownGoalFront);
@@ -3336,7 +3377,7 @@ function resolveMaxBumps() {
       const dx = b.position.x - a.position.x;
       const dz = b.position.z - a.position.z;
       const dist = Math.hypot(dx, dz) || 0.001;
-      const minDist = CAR_RADIUS * 2.05;
+      const minDist = (getCollisionRadius(a) + getCollisionRadius(b)) * 1.05;
       if (dist >= minDist) continue;
       const nx = dx / dist;
       const nz = dz / dist;
@@ -3374,7 +3415,7 @@ function resolveMaxBumps() {
     const dz = maxMode.ball.position.z - car.position.z;
     const dy = maxMode.ball.position.y - car.position.y;
     const dist = Math.hypot(dx, dz, dy) || 0.001;
-    const minDist = MAX_BALL_RADIUS + CAR_RADIUS + 3.4;
+    const minDist = MAX_BALL_RADIUS + getCollisionRadius(car) + 3.4;
     if (dist >= minDist) return;
     const nx = dx / dist;
     const ny = dy / dist;
@@ -3459,11 +3500,14 @@ function updateMaxBots(dt) {
       bot.team === "red" &&
       bot.position.distanceTo(player.position) < MAX_BOT_LUNGE_RANGE - 4 &&
       (bot.maxBotLungeTimer ?? 0) <= 0 &&
-      Math.random() < dt * 1.8
+      Math.random() < dt * (bot.role === "goalie" ? 0.4 : 1.8)
     ) {
       performMaxBotLunge(bot, player);
     }
-    if (bot.position.distanceTo(ballPos) < MAX_BALL_LUNGE_RANGE - 8 && Math.random() < dt * 1.2) {
+    if (
+      bot.position.distanceTo(ballPos) < (bot.role === "goalie" ? MAX_BALL_LUNGE_RANGE : MAX_BALL_LUNGE_RANGE - 8) &&
+      Math.random() < dt * (bot.role === "goalie" ? 2.6 : 1.2)
+    ) {
       performMaxBallLunge(bot);
     }
     if (bot.role === "goalie") {
@@ -3686,12 +3730,12 @@ function updateCamera(dt) {
   const ballCamActive = state.ballCam && isMaxMode() && maxMode.ball;
   const backHeading = player.heading;
   const back = new THREE.Vector3(Math.sin(backHeading), 0, Math.cos(backHeading)).multiplyScalar(
-    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult * (ballCamActive ? 0.92 : 1)
+    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult * (ballCamActive ? 1.18 : 1)
   );
   const desired = cameraTarget
     .clone()
     .add(back)
-    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult * (ballCamActive ? 1.08 : 1), 0));
+    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult * (ballCamActive ? 1.2 : 1), 0));
 
   if (input.focusCamera || settings.cameraFocus) {
     desired.add(new THREE.Vector3(0, 4 * deviceAssist.cameraHeightMult, 0));
@@ -3699,7 +3743,7 @@ function updateCamera(dt) {
 
   camera.position.lerp(desired, dt * 3.2);
   const lookTarget = ballCamActive
-    ? maxMode.ball.position.clone().add(new THREE.Vector3(0, 1.4, 0))
+    ? player.position.clone().lerp(maxMode.ball.position, 0.7).add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT + 0.8, 0))
     : player.position.clone().add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, 0));
   camera.lookAt(lookTarget);
 }
@@ -3893,6 +3937,33 @@ function drawMinimap() {
   minimapCtx.restore();
 }
 
+function updateDebugHud() {
+  if (!debugHud) return;
+  const visible = settings.devMode && DEBUG_FLAGS.enabled;
+  debugHud.hidden = !visible;
+  if (!visible) return;
+  const mode = isMaxMode() ? "MAX" : "ID3.3";
+  const ballSummary =
+    isMaxMode() && maxMode.ball
+      ? `BALL ${maxMode.ball.position.x.toFixed(0)}, ${maxMode.ball.position.z.toFixed(0)}`
+      : "BALL -";
+  debugHud.textContent = [
+    `MODE ${mode}`,
+    `WORLD ${state.worldIndex + 1}  LEVEL ${state.levelIndex + 1}`,
+    `PLAYER ${player.position.x.toFixed(0)}, ${player.position.z.toFixed(0)}  SPD ${Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT)}`,
+    isMaxMode() ? `HEALTH ${Math.round(player.maxHealth ?? MAX_HEALTH_MAX)}  BLUE ${maxMode.blueScore} RED ${maxMode.redScore}` : `LIVES ${state.lives}  SHIELD ${Math.round(state.shield * 100)}%`,
+    isMaxMode() ? `BALL LUNGE ${state.ballLungeCooldown.toFixed(1)}  TARGET ${state.botLungeCooldown.toFixed(1)}` : `BOOST ${Math.round(state.boost * 100)}  COMBO ${state.combo.toFixed(1)}`,
+    ballSummary
+  ].join("\n");
+}
+
+function updateBotHealthBars() {
+  bots.forEach((bot) => {
+    const visible = isMaxMode();
+    bot.setHealthBar((bot.maxHealth ?? MAX_HEALTH_MAX) / MAX_HEALTH_MAX, visible);
+  });
+}
+
 function updateHud() {
   const level = getLevel();
   if (isMaxMode()) {
@@ -3944,6 +4015,8 @@ function updateHud() {
   shieldBar.style.width = `${Math.round((isMaxMode() ? (player.maxHealth ?? MAX_HEALTH_MAX) / MAX_HEALTH_MAX : state.shield) * 100)}%`;
   progressBar.style.width = `${Math.min(100, (1 - state.timeLeft / level.time) * 100)}%`;
   drawMinimap();
+  updateDebugHud();
+  updateBotHealthBars();
 }
 
 function renderLivesHud() {
