@@ -6,6 +6,7 @@ const message = document.getElementById("message");
 const messageTitle = document.getElementById("message-title");
 const messageBody = document.getElementById("message-body");
 const startBtn = document.getElementById("start-btn");
+const overlaySubtitle = document.getElementById("overlay-subtitle");
 const tutorialBtn = document.getElementById("tutorial-btn");
 const tips = document.getElementById("tips");
 const nextBtn = document.getElementById("next-btn");
@@ -40,6 +41,7 @@ const difficultySelect = document.getElementById("difficulty-select");
 const invertToggle = document.getElementById("invert-toggle");
 const cameraToggle = document.getElementById("camera-toggle");
 const rampDensitySelect = document.getElementById("ramp-density-select");
+const modeSettingsHint = document.getElementById("mode-settings-hint");
 const devModeToggle = document.getElementById("dev-mode-toggle");
 const devModeStatus = document.getElementById("dev-mode-status");
 const devModeHint = document.getElementById("dev-mode-hint");
@@ -144,12 +146,12 @@ const GAME_MODE_ID33 = "infernodrift33";
 const GAME_MODE_MAX1 = "infernodriftmax1";
 const MAX_MODE_MATCH_TIME = 180;
 const MAX_MODE_GOAL_TARGET = 5;
-const MAX_STADIUM_RADIUS = 188;
-const MAX_STADIUM_FLOOR_RADIUS = 128;
-const MAX_STADIUM_WALL_HEIGHT = 30;
+const MAX_STADIUM_RADIUS = 242;
+const MAX_STADIUM_FLOOR_RADIUS = 156;
+const MAX_STADIUM_WALL_HEIGHT = 34;
 const MAX_STADIUM_RIM_START = 0.9;
 const MAX_GOAL_WIDTH = 30;
-const MAX_GOAL_LINE_Z = MAX_STADIUM_RADIUS - 16;
+const MAX_GOAL_LINE_Z = MAX_STADIUM_RADIUS - 18;
 const MAX_BALL_RADIUS = 4.2;
 const MAX_BALL_DRAG = 0.996;
 const MAX_BALL_BOUNCE = 0.72;
@@ -1094,6 +1096,19 @@ function refreshGamesUi() {
   if (startBtn) {
     startBtn.textContent = isMaxMode() ? "Start InfernoDriftMax 1" : "Start InfernoDrift 3.3";
   }
+  if (overlaySubtitle) {
+    overlaySubtitle.textContent = isMaxMode()
+      ? "Arcade soccar chaos. Drive up the arena walls, chain boost-pad lanes, slam the ball, and outscore the red team."
+      : "Free-roam survival racers. Drift through neon arenas, grab powerups, launch off ramps, and stay ahead of relentless hunter bots.";
+  }
+  const maxModeActive = isMaxMode();
+  difficultySelect?.closest(".field")?.toggleAttribute("hidden", maxModeActive);
+  rampDensitySelect?.closest(".field")?.toggleAttribute("hidden", maxModeActive);
+  if (modeSettingsHint) {
+    modeSettingsHint.textContent = maxModeActive
+      ? "Max settings: device, steering feel, and camera still apply here. Max ignores hunter difficulty and campaign ramp density."
+      : "Campaign settings: hunter difficulty, ramp density, and free-play options.";
+  }
 }
 
 function setActiveTab(tabName = "settings") {
@@ -1924,32 +1939,43 @@ function getMaxSurfaceHeight(x, z) {
 function makeMaxGoal(team, zSign) {
   const color = team === "blue" ? 0x56e9ff : 0xff6868;
   const goal = new THREE.Group();
+  const goalDepth = 18;
   const leftPost = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 12, 1.2),
+    new THREE.BoxGeometry(1.6, 16, 2.4),
     new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55 })
   );
   const rightPost = leftPost.clone();
   const crossbar = new THREE.Mesh(
-    new THREE.BoxGeometry(MAX_GOAL_WIDTH * 2 + 2, 1.2, 1.2),
+    new THREE.BoxGeometry(MAX_GOAL_WIDTH * 2 + 3, 1.6, 2.4),
     new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55 })
   );
-  leftPost.position.set(-MAX_GOAL_WIDTH, 6, 0);
-  rightPost.position.set(MAX_GOAL_WIDTH, 6, 0);
-  crossbar.position.set(0, 12, 0);
-  goal.add(leftPost, rightPost, crossbar);
+  const backFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(MAX_GOAL_WIDTH * 2 + 3, 14, 1.4),
+    new THREE.MeshStandardMaterial({ color: team === "blue" ? 0x143d57 : 0x56232a, emissive: color, emissiveIntensity: 0.18, transparent: true, opacity: 0.9 })
+  );
+  const floorGlow = new THREE.Mesh(
+    new THREE.BoxGeometry(MAX_GOAL_WIDTH * 2 + 8, 0.2, goalDepth),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.3, transparent: true, opacity: 0.72 })
+  );
+  leftPost.position.set(-MAX_GOAL_WIDTH, 8, 0);
+  rightPost.position.set(MAX_GOAL_WIDTH, 8, 0);
+  crossbar.position.set(0, 16, 0);
+  backFrame.position.set(0, 7.2, zSign * 0.5 * -goalDepth);
+  floorGlow.position.set(0, 0.08, zSign * -goalDepth * 0.5);
+  goal.add(leftPost, rightPost, crossbar, backFrame, floorGlow);
   goal.position.set(0, 0, zSign * MAX_GOAL_LINE_Z);
   props.add(goal);
 }
 
 function buildMaxArena() {
   clearWorld();
-  scene.fog.color.setHex(0x0d1522);
-  scene.background = new THREE.Color(0x0f2237);
-  groundMaterial.color.setHex(0x0d1724);
+  scene.fog.color.setHex(0x14304a);
+  scene.background = new THREE.Color(0x22486c);
+  groundMaterial.color.setHex(0x17314a);
 
   const centerDisc = new THREE.Mesh(
-    new THREE.CircleGeometry(MAX_STADIUM_FLOOR_RADIUS + 2, 48),
-    new THREE.MeshStandardMaterial({ color: 0x13283f, roughness: 0.82, metalness: 0.08 })
+    new THREE.CircleGeometry(MAX_STADIUM_FLOOR_RADIUS + 4, 56),
+    new THREE.MeshStandardMaterial({ color: 0x21476d, roughness: 0.72, metalness: 0.1 })
   );
   centerDisc.rotation.x = -Math.PI / 2;
   centerDisc.position.y = 0.01;
@@ -1958,17 +1984,18 @@ function buildMaxArena() {
   const bowlProfile = [
     new THREE.Vector2(0, 0),
     new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS, 0),
-    new THREE.Vector2(146, 2.2),
-    new THREE.Vector2(164, 8.2),
-    new THREE.Vector2(177, 17.5),
+    new THREE.Vector2(176, 1.2),
+    new THREE.Vector2(198, 3.8),
+    new THREE.Vector2(220, 12.5),
+    new THREE.Vector2(232, 23.5),
     new THREE.Vector2(MAX_STADIUM_RADIUS, MAX_STADIUM_WALL_HEIGHT)
   ];
   const bowl = new THREE.Mesh(
     new THREE.LatheGeometry(bowlProfile, 64),
     new THREE.MeshStandardMaterial({
-      color: 0x21344b,
-      roughness: 0.52,
-      metalness: 0.12,
+      color: 0x2d577d,
+      roughness: 0.4,
+      metalness: 0.16,
       side: THREE.DoubleSide
     })
   );
@@ -1978,20 +2005,20 @@ function buildMaxArena() {
   const wallGlow = new THREE.Mesh(
     new THREE.LatheGeometry(
       [
-        new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS + 8, 0.2),
-        new THREE.Vector2(154, 2.8),
-        new THREE.Vector2(172, 12),
+        new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS + 10, 0.2),
+        new THREE.Vector2(184, 2.8),
+        new THREE.Vector2(214, 14),
         new THREE.Vector2(MAX_STADIUM_RADIUS - 4, MAX_STADIUM_WALL_HEIGHT - 1.8)
       ],
       64
     ),
     new THREE.MeshStandardMaterial({
-      color: 0x16314c,
-      emissive: 0x16314c,
-      emissiveIntensity: 0.24,
-      roughness: 0.45,
+      color: 0x2a6da0,
+      emissive: 0x2a6da0,
+      emissiveIntensity: 0.32,
+      roughness: 0.36,
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.72,
       side: THREE.DoubleSide
     })
   );
@@ -1999,21 +2026,21 @@ function buildMaxArena() {
   arena.add(wallGlow);
 
   const centerRing = new THREE.Mesh(
-    new THREE.TorusGeometry(22, 1.1, 16, 56),
-    new THREE.MeshStandardMaterial({ color: 0x7feaff, emissive: 0x56e9ff, emissiveIntensity: 0.55, roughness: 0.2 })
+    new THREE.TorusGeometry(28, 1.4, 16, 64),
+    new THREE.MeshStandardMaterial({ color: 0xcdf9ff, emissive: 0x56e9ff, emissiveIntensity: 0.62, roughness: 0.16 })
   );
   centerRing.rotation.x = Math.PI / 2;
   centerRing.position.y = 0.26;
   arena.add(centerRing);
 
   const centerGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(17, 48),
+    new THREE.CircleGeometry(22, 56),
     new THREE.MeshStandardMaterial({
-      color: 0x173550,
-      emissive: 0x173550,
-      emissiveIntensity: 0.28,
+      color: 0x2e658f,
+      emissive: 0x2e658f,
+      emissiveIntensity: 0.34,
       transparent: true,
-      opacity: 0.78
+      opacity: 0.76
     })
   );
   centerGlow.rotation.x = -Math.PI / 2;
@@ -2032,6 +2059,24 @@ function buildMaxArena() {
     );
     strip.position.set(0, 0.05, zSign * (MAX_GOAL_LINE_Z - 8));
     props.add(strip);
+  });
+
+  [
+    [0, 0],
+    [-110, 0],
+    [110, 0],
+    [-152, -96],
+    [152, -96],
+    [-152, 96],
+    [152, 96],
+    [0, -152],
+    [0, 152]
+  ].forEach(([x, z]) => {
+    const pad = makeBoostPad();
+    pad.position.set(x, getMaxSurfaceHeight(x, z), z);
+    pad.userData.maxMode = true;
+    pad.userData.radius = 4.2;
+    boostPads.push(pad);
   });
 
   maxMode.ball = new THREE.Group();
@@ -2061,6 +2106,10 @@ function buildMaxArena() {
   maxMode.redScore = 0;
   maxMode.goalFlashTimer = 0;
   maxMode.lastScoredTeam = null;
+  if (scene.fog) {
+    scene.fog.near = 80;
+    scene.fog.far = 760;
+  }
 }
 
 function isMenuOpen() {
@@ -2154,9 +2203,9 @@ function getWorld() {
     return {
       name: "InfernoDriftMax 1",
       accents: [0x56e9ff, 0xff6c6c],
-      fog: 0x0d1522,
-      sky: 0x102744,
-      ground: 0x102030,
+      fog: 0x14304a,
+      sky: 0x22486c,
+      ground: 0x17314a,
       levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 38, spawnRate: 1 }]
     };
   }
@@ -2190,7 +2239,7 @@ function resetLevel() {
   state.overtime = false;
 
   const spawnX = isMaxMode() ? 0 : PLAYER_SPAWN_X;
-  const spawnZ = isMaxMode() ? -126 : PLAYER_SPAWN_Z;
+  const spawnZ = isMaxMode() ? -168 : PLAYER_SPAWN_Z;
   player.setPosition(spawnX, isMaxMode() ? getMaxSurfaceHeight(spawnX, spawnZ) : 0, spawnZ);
   player.velocity.set(0, 0, 0);
   player.speed = 0;
@@ -2234,11 +2283,11 @@ function clearBotState() {
 function spawnMaxBots() {
   clearBotState();
   const botSpecs = [
-    { team: "blue", role: "defender", color: 0x5feaff, x: -24, z: -104, heading: 0 },
-    { team: "blue", role: "support", color: 0x7fdbff, x: 24, z: -88, heading: 0.04 },
-    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 112, heading: Math.PI },
-    { team: "red", role: "striker", color: 0xff6c6c, x: -30, z: 82, heading: Math.PI - 0.08 },
-    { team: "red", role: "wing", color: 0xff9778, x: 30, z: 82, heading: Math.PI + 0.08 }
+    { team: "blue", role: "defender", color: 0x5feaff, x: -32, z: -136, heading: 0 },
+    { team: "blue", role: "support", color: 0x7fdbff, x: 32, z: -114, heading: 0.04 },
+    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 146, heading: Math.PI },
+    { team: "red", role: "striker", color: 0xff6c6c, x: -38, z: 108, heading: Math.PI - 0.08 },
+    { team: "red", role: "wing", color: 0xff9778, x: 38, z: 108, heading: Math.PI + 0.08 }
   ];
   botSpecs.forEach((spec) => {
     const bot = makeBot(spec.color);
@@ -2860,14 +2909,14 @@ function scoreMaxGoal(team) {
     return;
   }
   const blueSpawns = [
-    [0, -126],
-    [-24, -104],
-    [24, -88]
+    [0, -168],
+    [-32, -136],
+    [32, -114]
   ];
   const redSpawns = [
-    [0, 112],
-    [-30, 82],
-    [30, 82]
+    [0, 146],
+    [-38, 108],
+    [38, 108]
   ];
   player.setPosition(blueSpawns[0][0], getMaxSurfaceHeight(...blueSpawns[0]), blueSpawns[0][1]);
   player.heading = 0;
@@ -2909,11 +2958,11 @@ function updateMaxBall(dt) {
     maxMode.ballVelocity.x *= 0.992;
     maxMode.ballVelocity.z *= 0.992;
   }
-  if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH && maxMode.ball.position.z > MAX_GOAL_LINE_Z && maxMode.ball.position.y < 16) {
+  if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH + 4 && maxMode.ball.position.z > MAX_GOAL_LINE_Z - 2 && maxMode.ball.position.y < 20) {
     scoreMaxGoal("blue");
     return;
   }
-  if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH && maxMode.ball.position.z < -MAX_GOAL_LINE_Z && maxMode.ball.position.y < 16) {
+  if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH + 4 && maxMode.ball.position.z < -MAX_GOAL_LINE_Z + 2 && maxMode.ball.position.y < 20) {
     scoreMaxGoal("red");
     return;
   }
@@ -2965,7 +3014,7 @@ function resolveMaxBumps() {
     const dz = maxMode.ball.position.z - car.position.z;
     const dy = maxMode.ball.position.y - car.position.y;
     const dist = Math.hypot(dx, dz, dy) || 0.001;
-    const minDist = MAX_BALL_RADIUS + CAR_RADIUS + 0.4;
+    const minDist = MAX_BALL_RADIUS + CAR_RADIUS + 1.25;
     if (dist >= minDist) return;
     const nx = dx / dist;
     const ny = dy / dist;
@@ -3182,18 +3231,22 @@ function updatePowerupCollisions() {
   });
 }
 
-function updateBoostPads() {
+function updateBoostPads(dt = 0.016) {
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const deviceAssist = getDeviceAssistTuning();
   boostPads.forEach((pad) => {
+    pad.userData.cooldown = Math.max(0, (pad.userData.cooldown ?? 0) - dt);
     const distance = Math.hypot(player.position.x - pad.position.x, player.position.z - pad.position.z);
-    if (distance < pad.userData.radius * deviceAssist.boostPadRadiusMult && player.position.y <= 0.2) {
-      player.speed = Math.min(player.maxSpeed * loadoutStats.boostSpeedMult * loadoutStats.padSpeedMult, player.speed + 30);
-      state.boost = Math.min(1, state.boost + 0.24);
-      state.padSpeedTimer = loadoutStats.padDuration;
-      state.padSpeedMult = loadoutStats.padSpeedMult;
+    const groundedThreshold = isMaxMode() ? getMaxSurfaceHeight(player.position.x, player.position.z) + 0.8 : 0.2;
+    if (pad.userData.cooldown === 0 && distance < pad.userData.radius * deviceAssist.boostPadRadiusMult && player.position.y <= groundedThreshold) {
+      const maxModeBoost = isMaxMode() ? 1.12 : 1;
+      player.speed = Math.min(player.maxSpeed * loadoutStats.boostSpeedMult * loadoutStats.padSpeedMult * maxModeBoost, player.speed + (isMaxMode() ? 22 : 30));
+      state.boost = Math.min(1, state.boost + (isMaxMode() ? 0.32 : 0.24));
+      state.padSpeedTimer = isMaxMode() ? Math.max(state.padSpeedTimer, 1.6) : loadoutStats.padDuration;
+      state.padSpeedMult = isMaxMode() ? Math.max(state.padSpeedMult, 1.18) : loadoutStats.padSpeedMult;
+      pad.userData.cooldown = isMaxMode() ? 0.9 : 0.4;
       state.score += 40;
-      setEffectToast("Pad Surge");
+      setEffectToast(isMaxMode() ? "Max Boost Pad" : "Pad Surge");
       if (Math.random() < 0.55) {
         spawnFx(
           player.position.clone().add(new THREE.Vector3(0, 0.35, 0)),
@@ -3210,8 +3263,8 @@ function updateBoostPads() {
 function updateCamera(dt) {
   const deviceAssist = getDeviceAssistTuning();
   const cameraTarget = player.position.clone();
-  const gameDistanceMult = isMaxMode() ? 1.24 : 1;
-  const gameHeightMult = isMaxMode() ? 1.12 : 1;
+  const gameDistanceMult = isMaxMode() ? 1.36 : 1;
+  const gameHeightMult = isMaxMode() ? 1.18 : 1;
   const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(
     -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult
   );
@@ -3707,6 +3760,7 @@ function animate(now) {
     if (isMaxMode()) {
       updateMaxBall(dt);
       resolveMaxBumps();
+      updateBoostPads(dt);
       if (state.timeLeft <= 0 && !state.overtime) {
         if (maxMode.blueScore === maxMode.redScore) {
           state.overtime = true;
@@ -3723,7 +3777,7 @@ function animate(now) {
       bots.forEach((bot) => updateObstacles(bot));
       updatePowerups(dt);
       updatePowerupCollisions();
-      updateBoostPads();
+      updateBoostPads(dt);
     }
     updateFx(dt);
 
