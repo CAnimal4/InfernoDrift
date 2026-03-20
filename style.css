@@ -356,6 +356,62 @@ canvas {
   flex-wrap: wrap;
 }
 
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.game-card {
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 178, 255, 0.2);
+  background: linear-gradient(180deg, rgba(14, 20, 30, 0.95), rgba(8, 12, 18, 0.86));
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.game-card:hover,
+.game-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(126, 178, 255, 0.44);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+.game-card.active {
+  border-color: rgba(255, 184, 96, 0.58);
+  box-shadow: 0 0 0 1px rgba(255, 184, 96, 0.24), 0 18px 40px rgba(255, 118, 62, 0.18);
+}
+
+.game-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.game-card-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.game-card-copy strong {
+  font-size: 1.06rem;
+}
+
+.game-card-copy span {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .custom-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -762,7 +818,8 @@ body.device-phone .menu-panel {
 body.device-phone .custom-layout,
 body.device-phone .custom-grid,
 body.device-phone .custom-stats,
-body.device-phone .dev-tools-grid {
+body.device-phone .dev-tools-grid,
+body.device-phone .games-grid {
   grid-template-columns: 1fr;
 }
 

@@ -127,6 +127,7 @@
           </div>
           <div class="menu-tabs">
             <button class="tab-btn active" data-tab="settings" type="button">Settings</button>
+            <button class="tab-btn" id="games-tab-btn" data-tab="games" type="button" hidden>Games</button>
             <button class="tab-btn" data-tab="customize" type="button">Customize</button>
             <button class="tab-btn" data-tab="controls" type="button">Controls</button>
             <button class="tab-btn" data-tab="howto" type="button">How to Play</button>
@@ -208,6 +209,26 @@
                 </div>
               </div>
               <p class="hint">Changes apply instantly. Press R to restart the current level.</p>
+            </section>
+            <section class="tab-panel" id="tab-games">
+              <p class="hint">Dev-only mode switcher. Pick which version of InfernoDrift you want to launch.</p>
+              <div class="games-grid">
+                <button class="game-card active" id="game-card-id33" data-game-mode="infernodrift33" type="button">
+                  <img src="output/imagegen/infernodrift33-card.svg" alt="InfernoDrift 3.3 card art" />
+                  <div class="game-card-copy">
+                    <strong>InfernoDrift 3.3</strong>
+                    <span>Survival drift campaign with handcrafted level twists.</span>
+                  </div>
+                </button>
+                <button class="game-card" id="game-card-max1" data-game-mode="infernodriftmax1" type="button">
+                  <img src="output/imagegen/infernodriftmax1-card.svg" alt="InfernoDriftMax 1 card art" />
+                  <div class="game-card-copy">
+                    <strong>InfernoDriftMax 1</strong>
+                    <span>Blue vs red arena battles with wall-driving, bumps, and goals.</span>
+                  </div>
+                </button>
+              </div>
+              <p class="hint" id="game-mode-hint">Current game: InfernoDrift 3.3</p>
             </section>
             <section class="tab-panel" id="tab-customize">
               <div class="custom-layout">

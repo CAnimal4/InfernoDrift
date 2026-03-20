@@ -21,6 +21,7 @@ const hudSpeed = document.getElementById("hud-speed");
 const hudLives = document.getElementById("hud-lives");
 const hudHearts = document.getElementById("hud-hearts");
 const hudCombo = document.getElementById("hud-combo");
+const hudLabelNodes = document.querySelectorAll(".hud .pill .label");
 const touchJump = document.getElementById("touch-jump");
 const touchDrift = document.getElementById("touch-drift");
 const touchBoost = document.getElementById("touch-boost");
@@ -32,6 +33,9 @@ const menuBtn = document.getElementById("menu-btn");
 const menuClose = document.getElementById("menu-close");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabPanels = document.querySelectorAll(".tab-panel");
+const gamesTabBtn = document.getElementById("games-tab-btn");
+const gameModeHint = document.getElementById("game-mode-hint");
+const gameCards = document.querySelectorAll("[data-game-mode]");
 const difficultySelect = document.getElementById("difficulty-select");
 const invertToggle = document.getElementById("invert-toggle");
 const cameraToggle = document.getElementById("camera-toggle");
@@ -136,6 +140,19 @@ const DEV_MODE_PASSWORD = "ibelikesheesh";
 const BACKFLIP_DURATION = 0.78;
 const BACKFLIP_RECOVERY_DURATION = 0.3;
 const SAVE_STORAGE_KEY = "infernoDrift3.save.v1";
+const GAME_MODE_ID33 = "infernodrift33";
+const GAME_MODE_MAX1 = "infernodriftmax1";
+const MAX_MODE_MATCH_TIME = 180;
+const MAX_MODE_GOAL_TARGET = 5;
+const MAX_STADIUM_RADIUS = 150;
+const MAX_STADIUM_FLOOR_RADIUS = 98;
+const MAX_STADIUM_WALL_HEIGHT = 21;
+const MAX_GOAL_WIDTH = 24;
+const MAX_GOAL_LINE_Z = MAX_STADIUM_RADIUS - 10;
+const MAX_BALL_RADIUS = 3.4;
+const MAX_BALL_DRAG = 0.992;
+const MAX_BALL_BOUNCE = 0.78;
+const MAX_CAR_BUMP_FORCE = 18;
 const DEFAULT_CUSTOMIZATION = {
   bodyId: "street",
   wheelId: "grip",
@@ -582,7 +599,8 @@ const settings = {
   cameraFocus: false,
   rampDensity: "normal",
   deviceMode: "auto",
-  devMode: false
+  devMode: false,
+  activeGameMode: GAME_MODE_ID33
 };
 
 const customization = {
@@ -634,12 +652,43 @@ const state = {
   devJumpCarrySpeed: 0,
   backflipChainCount: 0,
   deviceInputMode: "auto",
+  overtime: false,
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
 };
 
+const maxMode = {
+  ball: null,
+  ballVelocity: new THREE.Vector3(),
+  ballSpin: 0,
+  ballPrevPosition: new THREE.Vector3(),
+  blueScore: 0,
+  redScore: 0,
+  goalFlashTimer: 0,
+  teamCars: [],
+  lastScoredTeam: null
+};
+
 function isCarAirborne(car) {
   return car.position.y > 0.18 || car.verticalVel > 0.3;
+}
+
+function isMaxMode() {
+  return settings.activeGameMode === GAME_MODE_MAX1;
+}
+
+function getActiveGameMeta() {
+  return isMaxMode()
+    ? {
+        id: GAME_MODE_MAX1,
+        title: "InfernoDriftMax 1",
+        subtitle: "Blue vs Red Arena"
+      }
+    : {
+        id: GAME_MODE_ID33,
+        title: "InfernoDrift 3.3",
+        subtitle: "Campaign Drift"
+      };
 }
 
 function clampWorldIndex(index) {
@@ -881,7 +930,8 @@ function savePersistentState() {
       cameraFocus: settings.cameraFocus,
       rampDensity: settings.rampDensity,
       deviceMode: settings.deviceMode,
-      devMode: settings.devMode
+      devMode: settings.devMode,
+      activeGameMode: settings.activeGameMode
     },
     devTuning: {
       playerSpeedMult: devTuning.playerSpeedMult,
@@ -922,6 +972,7 @@ function loadPersistentState() {
       if (typeof data.settings.rampDensity === "string") settings.rampDensity = data.settings.rampDensity;
       if (typeof data.settings.deviceMode === "string") settings.deviceMode = data.settings.deviceMode;
       if (typeof data.settings.devMode === "boolean") settings.devMode = data.settings.devMode;
+      if (typeof data.settings.activeGameMode === "string") settings.activeGameMode = data.settings.activeGameMode;
     }
     if (data.devTuning && typeof data.devTuning === "object") {
       if (Number.isFinite(data.devTuning.playerSpeedMult)) devTuning.playerSpeedMult = data.devTuning.playerSpeedMult;
@@ -947,6 +998,9 @@ function loadPersistentState() {
     state.worldIndex = safeWorld;
     state.levelIndex = clampLevelIndex(safeWorld, levelIndex);
     clampCustomizationToUnlocks({ worldIndex: safeWorld, levelIndex: state.levelIndex });
+    if (!settings.devMode && settings.activeGameMode === GAME_MODE_MAX1) {
+      settings.activeGameMode = GAME_MODE_ID33;
+    }
   } catch (error) {
     debugLog("menu", "load_failed", error?.message || error);
   }
@@ -956,6 +1010,16 @@ function refreshDevModeUi() {
   if (devModeToggle) devModeToggle.checked = settings.devMode;
   document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
+  if (gamesTabBtn) {
+    gamesTabBtn.hidden = !settings.devMode;
+    if (!settings.devMode && gamesTabBtn.classList.contains("active")) {
+      gamesTabBtn.classList.remove("active");
+      tabButtons.forEach((button) => {
+        if (button.dataset.tab === "settings") button.classList.add("active");
+      });
+      tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === "tab-settings"));
+    }
+  }
   if (touchJump) {
     touchJump.hidden = !input.touchEnabled;
   }
@@ -989,17 +1053,19 @@ function refreshDevModeUi() {
   if (devModeHint) {
     devModeHint.hidden = !settings.devMode;
     devModeHint.textContent = settings.devMode
-      ? "Dev Mode enabled. Tune player and bot speed, freeze bots, go infinite boost, or quick-clear the level."
+      ? "Dev Mode enabled. Tune player and bot speed, freeze bots, quick-clear levels, and unlock the Games tab."
       : "Dev Mode unlocks player and bot speed tuning, boost/invulnerability toggles, and quick developer actions.";
   }
   if (devModeStatus) {
     devModeStatus.hidden = !settings.devMode;
     devModeStatus.textContent = `Status: ${settings.devMode ? "Enabled" : "Disabled"}`;
   }
+  refreshGamesUi();
 }
 
 function setDevMode(enabled, { save = true, announce = true } = {}) {
   settings.devMode = enabled;
+  if (!enabled && isMaxMode()) settings.activeGameMode = GAME_MODE_ID33;
   applyRuntimePlayerStats();
   refreshDevModeUi();
   if (announce) {
@@ -1013,6 +1079,32 @@ function setDevTuningValue(key, value) {
   applyRuntimePlayerStats();
   refreshDevModeUi();
   savePersistentState();
+}
+
+function refreshGamesUi() {
+  const activeMeta = getActiveGameMeta();
+  gameCards.forEach((card) => {
+    const active = card.dataset.gameMode === settings.activeGameMode;
+    card.classList.toggle("active", active);
+    card.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  if (gameModeHint) {
+    gameModeHint.textContent = `Current game: ${activeMeta.title} - ${activeMeta.subtitle}`;
+  }
+}
+
+function setActiveGameMode(mode, { save = true, reset = false } = {}) {
+  const nextMode = mode === GAME_MODE_MAX1 && settings.devMode ? GAME_MODE_MAX1 : GAME_MODE_ID33;
+  if (settings.activeGameMode === nextMode && !reset) {
+    refreshGamesUi();
+    return;
+  }
+  settings.activeGameMode = nextMode;
+  lastLivesRendered = -1;
+  refreshGamesUi();
+  if (save) savePersistentState();
+  if (reset) startRun(true);
+  else if (state.running) resetLevel();
 }
 
 function resetDevTuning() {
@@ -1619,6 +1711,262 @@ function spawnRampLayout(config) {
   });
 }
 
+function makeNeonBeacon(x, z, height, color) {
+  const group = new THREE.Group();
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.9, 1.2, height, 10),
+    new THREE.MeshStandardMaterial({ color: 0x1c2430, roughness: 0.7 })
+  );
+  stem.position.y = height * 0.5;
+  const glow = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.4, 0.6, 16),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, roughness: 0.18 })
+  );
+  glow.position.y = height + 0.35;
+  group.add(stem, glow);
+  group.position.set(x, 0, z);
+  arena.add(group);
+}
+
+function makeHazardStrip(x, z, width, depth, color) {
+  const strip = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.06, depth),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.45, roughness: 0.3 })
+  );
+  strip.position.set(x, 0.04, z);
+  props.add(strip);
+}
+
+function spawnExtraBoostPad(x, z) {
+  const pad = makeBoostPad();
+  pad.position.set(x, 0, z);
+  boostPads.push(pad);
+}
+
+function getLevelFeatureConfig() {
+  const variants = {
+    "0-0": { feature: "spires", barriers: "none", padLane: "center", extraRamps: [{ x: -84, z: 84, kind: "normal" }] },
+    "0-1": { feature: "chicane", barriers: "chicane", padLane: "north", extraRamps: [{ x: 96, z: -58, kind: "mega" }] },
+    "0-2": { feature: "hazards", barriers: "cross", padLane: "east", extraRamps: [{ x: -126, z: 0, kind: "normal" }] },
+    "0-3": { feature: "gates", barriers: "gate", padLane: "ring", extraRamps: [{ x: 0, z: -134, kind: "mega" }] },
+    "1-0": { feature: "beacons", barriers: "lanes", padLane: "south", extraRamps: [{ x: 118, z: 62, kind: "normal" }] },
+    "1-1": { feature: "stagger", barriers: "stagger", padLane: "west", extraRamps: [{ x: -110, z: -72, kind: "mega" }] },
+    "1-2": { feature: "icefield", barriers: "cross", padLane: "center", extraRamps: [{ x: 124, z: 0, kind: "normal" }] },
+    "1-3": { feature: "towers", barriers: "gate", padLane: "ring", extraRamps: [{ x: 0, z: 136, kind: "mega" }] },
+    "2-0": { feature: "furnaces", barriers: "lanes", padLane: "north", extraRamps: [{ x: -132, z: 48, kind: "normal" }] },
+    "2-1": { feature: "funnels", barriers: "chicane", padLane: "east", extraRamps: [{ x: 138, z: -24, kind: "mega" }] },
+    "2-2": { feature: "corridors", barriers: "stagger", padLane: "south", extraRamps: [{ x: -96, z: -118, kind: "normal" }] },
+    "2-3": { feature: "dais", barriers: "box", padLane: "center", extraRamps: [{ x: 94, z: 118, kind: "mega" }] },
+    "3-0": { feature: "stormgates", barriers: "gate", padLane: "west", extraRamps: [{ x: -144, z: 0, kind: "normal" }] },
+    "3-1": { feature: "relay", barriers: "cross", padLane: "ring", extraRamps: [{ x: 146, z: 34, kind: "mega" }] },
+    "3-2": { feature: "arcs", barriers: "lanes", padLane: "north", extraRamps: [{ x: 0, z: -148, kind: "normal" }] },
+    "3-3": { feature: "crown", barriers: "box", padLane: "center", extraRamps: [{ x: 0, z: 150, kind: "mega" }] },
+    "4-0": { feature: "monoliths", barriers: "stagger", padLane: "east", extraRamps: [{ x: -120, z: -104, kind: "normal" }] },
+    "4-1": { feature: "causeway", barriers: "gate", padLane: "south", extraRamps: [{ x: 116, z: -116, kind: "mega" }] },
+    "4-2": { feature: "collider", barriers: "cross", padLane: "west", extraRamps: [{ x: -148, z: 60, kind: "normal" }] },
+    "4-3": { feature: "abyss", barriers: "box", padLane: "ring", extraRamps: [{ x: 148, z: 82, kind: "mega" }] }
+  };
+  return variants[`${state.worldIndex}-${state.levelIndex}`] ?? variants["0-0"];
+}
+
+function applyLevelIdentity(world) {
+  if (isMaxMode()) return;
+  const feature = getLevelFeatureConfig();
+  const [primaryAccent, secondaryAccent] = world.accents;
+  const beaconColor = secondaryAccent ?? primaryAccent;
+
+  if (feature.feature === "spires" || feature.feature === "towers" || feature.feature === "monoliths") {
+    [-140, -78, 78, 140].forEach((x, idx) => makeNeonBeacon(x, idx % 2 === 0 ? -146 : 146, 12 + idx * 2, beaconColor));
+  }
+  if (feature.feature === "gates" || feature.feature === "stormgates" || feature.feature === "causeway") {
+    makeBarrier(0, 122, 72, 6);
+    makeBarrier(0, -122, 72, 6);
+  }
+  if (feature.feature === "hazards" || feature.feature === "icefield" || feature.feature === "corridors" || feature.feature === "abyss") {
+    makeHazardStrip(0, 0, 18, 240, primaryAccent);
+    makeHazardStrip(0, 0, 240, 18, beaconColor);
+  }
+  if (feature.feature === "relay" || feature.feature === "arcs" || feature.feature === "crown" || feature.feature === "collider") {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(46, 1.35, 16, 48),
+      new THREE.MeshStandardMaterial({ color: beaconColor, emissive: primaryAccent, emissiveIntensity: 0.55, roughness: 0.18 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.45;
+    arena.add(ring);
+  }
+  if (feature.feature === "furnaces" || feature.feature === "funnels" || feature.feature === "dais") {
+    makeBuilding(-90, 0, 22, 0x322620);
+    makeBuilding(90, 0, 22, 0x322620);
+  }
+  if (feature.feature === "beacons" || feature.feature === "stagger") {
+    [-110, -40, 40, 110].forEach((x, idx) => makeNeonBeacon(x, idx % 2 === 0 ? 64 : -64, 10 + idx, primaryAccent));
+  }
+
+  switch (feature.barriers) {
+    case "cross":
+      makeBarrier(0, 82, 14, 54);
+      makeBarrier(0, -82, 14, 54);
+      makeBarrier(82, 0, 54, 14);
+      makeBarrier(-82, 0, 54, 14);
+      break;
+    case "chicane":
+      makeBarrier(-56, 38, 12, 62);
+      makeBarrier(56, -38, 12, 62);
+      break;
+    case "gate":
+      makeBarrier(-52, 0, 14, 72);
+      makeBarrier(52, 0, 14, 72);
+      break;
+    case "lanes":
+      makeBarrier(-86, 0, 10, 122);
+      makeBarrier(86, 0, 10, 122);
+      break;
+    case "stagger":
+      makeBarrier(-72, 48, 18, 42);
+      makeBarrier(0, -24, 18, 42);
+      makeBarrier(72, 72, 18, 42);
+      break;
+    case "box":
+      makeBarrier(0, 92, 76, 10);
+      makeBarrier(0, -92, 76, 10);
+      makeBarrier(92, 0, 10, 76);
+      makeBarrier(-92, 0, 10, 76);
+      break;
+    default:
+      break;
+  }
+
+  switch (feature.padLane) {
+    case "north":
+      [-72, 0, 72].forEach((x) => spawnExtraBoostPad(x, 136));
+      break;
+    case "south":
+      [-72, 0, 72].forEach((x) => spawnExtraBoostPad(x, -136));
+      break;
+    case "east":
+      [-72, 0, 72].forEach((z) => spawnExtraBoostPad(136, z));
+      break;
+    case "west":
+      [-72, 0, 72].forEach((z) => spawnExtraBoostPad(-136, z));
+      break;
+    case "ring":
+      [
+        [0, 144],
+        [0, -144],
+        [144, 0],
+        [-144, 0]
+      ].forEach(([x, z]) => spawnExtraBoostPad(x, z));
+      break;
+    default:
+      spawnExtraBoostPad(0, 118);
+      spawnExtraBoostPad(0, -118);
+      break;
+  }
+
+  feature.extraRamps.forEach(({ x, z, kind }) => {
+    const ramp = makeRamp(kind);
+    ramp.position.set(x, 0, z);
+    ramps.push(ramp);
+  });
+}
+
+function getMaxSurfaceHeight(x, z) {
+  const radius = Math.hypot(x, z);
+  if (radius <= MAX_STADIUM_FLOOR_RADIUS) return 0;
+  const t = THREE.MathUtils.clamp((radius - MAX_STADIUM_FLOOR_RADIUS) / (MAX_STADIUM_RADIUS - MAX_STADIUM_FLOOR_RADIUS), 0, 1);
+  return t * t * MAX_STADIUM_WALL_HEIGHT;
+}
+
+function makeMaxGoal(team, zSign) {
+  const color = team === "blue" ? 0x56e9ff : 0xff6868;
+  const goal = new THREE.Group();
+  const leftPost = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 12, 1.2),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55 })
+  );
+  const rightPost = leftPost.clone();
+  const crossbar = new THREE.Mesh(
+    new THREE.BoxGeometry(MAX_GOAL_WIDTH * 2 + 2, 1.2, 1.2),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55 })
+  );
+  leftPost.position.set(-MAX_GOAL_WIDTH, 6, 0);
+  rightPost.position.set(MAX_GOAL_WIDTH, 6, 0);
+  crossbar.position.set(0, 12, 0);
+  goal.add(leftPost, rightPost, crossbar);
+  goal.position.set(0, 0, zSign * MAX_GOAL_LINE_Z);
+  props.add(goal);
+}
+
+function buildMaxArena() {
+  clearWorld();
+  scene.fog.color.setHex(0x0d1522);
+  scene.background = new THREE.Color(0x102744);
+  groundMaterial.color.setHex(0x102030);
+
+  const centerDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(MAX_STADIUM_FLOOR_RADIUS + 2, 48),
+    new THREE.MeshStandardMaterial({ color: 0x13263b, roughness: 0.84 })
+  );
+  centerDisc.rotation.x = -Math.PI / 2;
+  centerDisc.position.y = 0.01;
+  arena.add(centerDisc);
+
+  const bowlProfile = [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(MAX_STADIUM_FLOOR_RADIUS, 0),
+    new THREE.Vector2(118, 2.4),
+    new THREE.Vector2(132, 8),
+    new THREE.Vector2(MAX_STADIUM_RADIUS, MAX_STADIUM_WALL_HEIGHT)
+  ];
+  const bowl = new THREE.Mesh(
+    new THREE.LatheGeometry(bowlProfile, 64),
+    new THREE.MeshStandardMaterial({
+      color: 0x1b2f46,
+      roughness: 0.58,
+      metalness: 0.08,
+      side: THREE.DoubleSide
+    })
+  );
+  bowl.position.y = 0.02;
+  arena.add(bowl);
+
+  const centerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(18, 0.8, 12, 42),
+    new THREE.MeshStandardMaterial({ color: 0x7feaff, emissive: 0x56e9ff, emissiveIntensity: 0.55, roughness: 0.22 })
+  );
+  centerRing.rotation.x = Math.PI / 2;
+  centerRing.position.y = 0.26;
+  arena.add(centerRing);
+
+  [-1, 1].forEach((zSign) => {
+    makeMaxGoal(zSign < 0 ? "blue" : "red", zSign);
+    const strip = new THREE.Mesh(
+      new THREE.BoxGeometry(MAX_GOAL_WIDTH * 2 + 8, 0.08, 16),
+      new THREE.MeshStandardMaterial({
+        color: zSign < 0 ? 0x56e9ff : 0xff6868,
+        emissive: zSign < 0 ? 0x56e9ff : 0xff6868,
+        emissiveIntensity: 0.36
+      })
+    );
+    strip.position.set(0, 0.05, zSign * (MAX_GOAL_LINE_Z - 8));
+    props.add(strip);
+  });
+
+  maxMode.ball = new THREE.Mesh(
+    new THREE.SphereGeometry(MAX_BALL_RADIUS, 24, 24),
+    new THREE.MeshStandardMaterial({ color: 0xf5f5f2, roughness: 0.32, metalness: 0.08 })
+  );
+  maxMode.ball.position.set(0, MAX_BALL_RADIUS, 0);
+  props.add(maxMode.ball);
+  maxMode.ballVelocity.set(0, 0, 0);
+  maxMode.ballPrevPosition.copy(maxMode.ball.position);
+  maxMode.blueScore = 0;
+  maxMode.redScore = 0;
+  maxMode.goalFlashTimer = 0;
+  maxMode.lastScoredTeam = null;
+}
+
 function isMenuOpen() {
   return menu.classList.contains("show");
 }
@@ -1651,12 +1999,23 @@ function clearWorld() {
   props.children.forEach((child) => disposeObject3D(child));
   arena.clear();
   props.clear();
+  maxMode.ball = null;
+  maxMode.ballVelocity.set(0, 0, 0);
+  maxMode.ballPrevPosition.set(0, 0, 0);
+  maxMode.goalFlashTimer = 0;
+  maxMode.lastScoredTeam = null;
 }
 
 function buildWorld() {
   if (state.isBuildingWorld) return;
   state.isBuildingWorld = true;
   try {
+    if (isMaxMode()) {
+      buildMaxArena();
+      state.buildCount += 1;
+      debugLog("world", "buildMaxArena complete", { buildCount: state.buildCount });
+      return;
+    }
     clearWorld();
     const world = getWorld();
     scene.fog.color.setHex(world.fog);
@@ -1681,6 +2040,7 @@ function buildWorld() {
       pad.position.set(x, 0, z);
       boostPads.push(pad);
     });
+    applyLevelIdentity(world);
     state.buildCount += 1;
     debugLog("world", "buildWorld complete", {
       buildCount: state.buildCount,
@@ -1694,11 +2054,21 @@ function buildWorld() {
 }
 
 function getWorld() {
+  if (isMaxMode()) {
+    return {
+      name: "InfernoDriftMax 1",
+      accents: [0x56e9ff, 0xff6c6c],
+      fog: 0x0d1522,
+      sky: 0x102744,
+      ground: 0x102030,
+      levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 46, spawnRate: 1 }]
+    };
+  }
   return worldData[state.worldIndex];
 }
 
 function getLevel() {
-  return getWorld().levels[state.levelIndex];
+  return isMaxMode() ? getWorld().levels[0] : getWorld().levels[state.levelIndex];
 }
 
 function resetLevel() {
@@ -1721,12 +2091,15 @@ function resetLevel() {
   state.effectToastTimer = 0;
   const level = getLevel();
   state.timeLeft = level.time;
+  state.overtime = false;
 
-  player.setPosition(PLAYER_SPAWN_X, 0, PLAYER_SPAWN_Z);
+  const spawnX = isMaxMode() ? 0 : PLAYER_SPAWN_X;
+  const spawnZ = isMaxMode() ? -110 : PLAYER_SPAWN_Z;
+  player.setPosition(spawnX, isMaxMode() ? getMaxSurfaceHeight(spawnX, spawnZ) : 0, spawnZ);
   player.velocity.set(0, 0, 0);
   player.speed = 0;
-  player.heading = 0;
-  player.moveHeading = 0;
+  player.heading = isMaxMode() ? 0 : 0;
+  player.moveHeading = player.heading;
   state.minimapHeading = player.heading;
   state.minimapDebugTimer = 0;
   player.verticalVel = 0;
@@ -1747,16 +2120,81 @@ function resetLevel() {
   applyPlayerCustomization();
   buildWorld();
   spawnBots();
-  spawnPowerups();
+  if (isMaxMode()) {
+    state.lives = 3;
+    state.shield = 0;
+    state.boost = 1;
+  } else {
+    spawnPowerups();
+  }
 }
 
 function clearBotState() {
   bots.forEach((bot) => scene.remove(bot.group));
   bots.splice(0, bots.length);
+  maxMode.teamCars = [];
+}
+
+function spawnMaxBots() {
+  clearBotState();
+  const botSpecs = [
+    { team: "blue", role: "defender", color: 0x5feaff, x: -18, z: -86, heading: 0 },
+    { team: "blue", role: "support", color: 0x7fdbff, x: 18, z: -72, heading: 0.05 },
+    { team: "red", role: "defender", color: 0xff8a8a, x: 0, z: 94, heading: Math.PI },
+    { team: "red", role: "striker", color: 0xff6c6c, x: -24, z: 66, heading: Math.PI - 0.1 },
+    { team: "red", role: "wing", color: 0xff9778, x: 24, z: 66, heading: Math.PI + 0.1 }
+  ];
+  botSpecs.forEach((spec) => {
+    const bot = makeBot(spec.color);
+    bot.team = spec.team;
+    bot.role = spec.role;
+    bot.setPosition(spec.x, getMaxSurfaceHeight(spec.x, spec.z), spec.z);
+    bot.heading = spec.heading;
+    bot.moveHeading = spec.heading;
+    bot.maxSpeed = 50;
+    bot.accel = 20;
+    bot.turnRate = 2.6;
+    bots.push(bot);
+  });
+  maxMode.teamCars = [player, ...bots];
+}
+
+function constrainMaxArenaCar(car) {
+  const radius = Math.hypot(car.position.x, car.position.z);
+  if (radius > MAX_STADIUM_RADIUS - 1.5) {
+    const scale = (MAX_STADIUM_RADIUS - 1.5) / Math.max(radius, 0.001);
+    car.position.x *= scale;
+    car.position.z *= scale;
+    car.prevPosition.copy(car.position);
+  }
+  car.group.position.copy(car.position);
+}
+
+function getMaxBotTarget(bot) {
+  const ball = maxMode.ball?.position ?? new THREE.Vector3();
+  const defendZ = bot.team === "blue" ? -MAX_GOAL_LINE_Z + 16 : MAX_GOAL_LINE_Z - 16;
+  const attackZ = bot.team === "blue" ? MAX_GOAL_LINE_Z - 8 : -MAX_GOAL_LINE_Z + 8;
+  if (bot.role === "defender") {
+    if (bot.team === "blue") {
+      return ball.z < 10 ? new THREE.Vector3(ball.x * 0.65, 0, THREE.MathUtils.lerp(defendZ, ball.z, 0.55)) : new THREE.Vector3(0, 0, defendZ);
+    }
+    return ball.z > -10 ? new THREE.Vector3(ball.x * 0.65, 0, THREE.MathUtils.lerp(defendZ, ball.z, 0.55)) : new THREE.Vector3(0, 0, defendZ);
+  }
+  if (bot.role === "support") {
+    return new THREE.Vector3(ball.x * 0.7, 0, THREE.MathUtils.lerp(ball.z, attackZ * 0.35, 0.28));
+  }
+  if (bot.role === "wing") {
+    return new THREE.Vector3(ball.x + (bot.team === "blue" ? 18 : -18), 0, THREE.MathUtils.lerp(ball.z, attackZ, 0.22));
+  }
+  return new THREE.Vector3(ball.x, 0, THREE.MathUtils.lerp(ball.z, attackZ, 0.18));
 }
 
 function spawnBots() {
   clearBotState();
+  if (isMaxMode()) {
+    spawnMaxBots();
+    return;
+  }
   if (settings.difficulty === "no_bots") return;
   const level = getLevel();
   const palette = getWorld().accents;
@@ -2106,6 +2544,7 @@ function updatePlayer(dt) {
 
   updateVerticalPhysics(player, dt);
   player.update(dt);
+  if (isMaxMode()) constrainMaxArenaCar(player);
   updateCombo(dt, steer);
   emitDrivingFx(dt, steer, drift, boostActive);
 
@@ -2116,6 +2555,7 @@ function updatePlayer(dt) {
 
 function updateVerticalPhysics(car, dt) {
   const speedAbs = Math.abs(car.speed);
+  const maxModeActive = isMaxMode();
   const loadoutStats = !car.isBot ? state.playerLoadoutStats ?? computePlayerLoadoutStats() : null;
   const deviceAssist = !car.isBot ? getDeviceAssistTuning() : null;
   const substeps = THREE.MathUtils.clamp(Math.ceil(speedAbs / 17), PHYSICS_SUBSTEPS_BASE, PHYSICS_SUBSTEPS_MAX);
@@ -2124,9 +2564,10 @@ function updateVerticalPhysics(car, dt) {
   for (let step = 0; step < substeps; step += 1) {
     car.verticalVel += GRAVITY * stepDt;
     car.position.y += car.verticalVel * stepDt;
+    const floorHeight = maxModeActive ? getMaxSurfaceHeight(car.position.x, car.position.z) : 0;
 
-    if (car.position.y <= 0) {
-      car.position.y = 0;
+    if (car.position.y <= floorHeight) {
+      car.position.y = floorHeight;
       car.verticalVel = 0;
       if (!car.isBot && state.wasAirborne) {
         const bonus = Math.min(2.5, state.airTime);
@@ -2160,6 +2601,8 @@ function updateVerticalPhysics(car, dt) {
       state.airTime += stepDt;
       state.wasAirborne = true;
     }
+
+    if (maxModeActive) continue;
 
     const phase = (step + 1) / substeps;
     const nowX = THREE.MathUtils.lerp(car.prevPosition.x, car.position.x, phase);
@@ -2267,7 +2710,163 @@ function isValidBotHit(playerCar, botCar, segmentDistance) {
   return { valid: horizontalTouch && verticalTouch, horizontalTouch, verticalTouch };
 }
 
+function scoreMaxGoal(team) {
+  if (team === "blue") maxMode.blueScore += 1;
+  else maxMode.redScore += 1;
+  maxMode.lastScoredTeam = team;
+  maxMode.goalFlashTimer = 1.6;
+  state.effectToast = team === "blue" ? "Blue Scores" : "Red Scores";
+  state.effectToastTimer = 1.8;
+  state.boost = 1;
+  player.speed = 0;
+  player.velocity.set(0, 0, 0);
+  if (maxMode.blueScore >= MAX_MODE_GOAL_TARGET || maxMode.redScore >= MAX_MODE_GOAL_TARGET) {
+    const winner = maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins";
+    showMessage(winner, "Press Enter to run another match.", "Replay", "restart-current");
+    return;
+  }
+  const blueSpawns = [
+    [0, -110],
+    [-18, -86],
+    [18, -72]
+  ];
+  const redSpawns = [
+    [0, 94],
+    [-24, 66],
+    [24, 66]
+  ];
+  player.setPosition(blueSpawns[0][0], getMaxSurfaceHeight(...blueSpawns[0]), blueSpawns[0][1]);
+  player.heading = 0;
+  player.moveHeading = 0;
+  player.speed = 0;
+  player.verticalVel = 0;
+  bots.forEach((bot, index) => {
+    const list = bot.team === "blue" ? blueSpawns : redSpawns;
+    const slot = bot.team === "blue" ? Math.min(index + 1, list.length - 1) : Math.max(0, index - 2);
+    const [x, z] = list[slot] ?? list[list.length - 1];
+    bot.setPosition(x, getMaxSurfaceHeight(x, z), z);
+    bot.speed = 0;
+    bot.velocity.set(0, 0, 0);
+    bot.verticalVel = 0;
+    bot.heading = bot.team === "blue" ? 0 : Math.PI;
+    bot.moveHeading = bot.heading;
+  });
+  if (maxMode.ball) {
+    maxMode.ball.position.set(0, MAX_BALL_RADIUS, 0);
+    maxMode.ballVelocity.set(0, 0, 0);
+  }
+}
+
+function updateMaxBall(dt) {
+  if (!maxMode.ball) return;
+  maxMode.ballPrevPosition.copy(maxMode.ball.position);
+  maxMode.goalFlashTimer = Math.max(0, maxMode.goalFlashTimer - dt);
+  maxMode.ballVelocity.y += GRAVITY * 0.72 * dt;
+  maxMode.ball.position.addScaledVector(maxMode.ballVelocity, dt);
+  maxMode.ballVelocity.multiplyScalar(MAX_BALL_DRAG);
+  const floorHeight = getMaxSurfaceHeight(maxMode.ball.position.x, maxMode.ball.position.z) + MAX_BALL_RADIUS;
+  if (maxMode.ball.position.y < floorHeight) {
+    maxMode.ball.position.y = floorHeight;
+    if (Math.abs(maxMode.ballVelocity.y) > 2) {
+      maxMode.ballVelocity.y = Math.abs(maxMode.ballVelocity.y) * MAX_BALL_BOUNCE;
+    } else {
+      maxMode.ballVelocity.y = 0;
+    }
+  }
+  if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH && maxMode.ball.position.z > MAX_GOAL_LINE_Z && maxMode.ball.position.y < 16) {
+    scoreMaxGoal("blue");
+    return;
+  }
+  if (Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH && maxMode.ball.position.z < -MAX_GOAL_LINE_Z && maxMode.ball.position.y < 16) {
+    scoreMaxGoal("red");
+    return;
+  }
+  const radial = Math.hypot(maxMode.ball.position.x, maxMode.ball.position.z);
+  const ballLimit = MAX_STADIUM_RADIUS - MAX_BALL_RADIUS;
+  if (radial > ballLimit) {
+    const nx = maxMode.ball.position.x / Math.max(radial, 0.001);
+    const nz = maxMode.ball.position.z / Math.max(radial, 0.001);
+    maxMode.ball.position.x = nx * ballLimit;
+    maxMode.ball.position.z = nz * ballLimit;
+    const dot = maxMode.ballVelocity.x * nx + maxMode.ballVelocity.z * nz;
+    maxMode.ballVelocity.x -= dot * nx * 1.92;
+    maxMode.ballVelocity.z -= dot * nz * 1.92;
+  }
+}
+
+function resolveMaxBumps() {
+  const cars = [player, ...bots];
+  for (let i = 0; i < cars.length; i += 1) {
+    for (let j = i + 1; j < cars.length; j += 1) {
+      const a = cars[i];
+      const b = cars[j];
+      const dx = b.position.x - a.position.x;
+      const dz = b.position.z - a.position.z;
+      const dist = Math.hypot(dx, dz) || 0.001;
+      const minDist = CAR_RADIUS * 2.05;
+      if (dist >= minDist) continue;
+      const nx = dx / dist;
+      const nz = dz / dist;
+      const overlap = minDist - dist;
+      a.position.x -= nx * overlap * 0.5;
+      a.position.z -= nz * overlap * 0.5;
+      b.position.x += nx * overlap * 0.5;
+      b.position.z += nz * overlap * 0.5;
+      a.speed -= MAX_CAR_BUMP_FORCE * 0.18;
+      b.speed += MAX_CAR_BUMP_FORCE * 0.18;
+      a.velocity.add(new THREE.Vector3(-nx, 0, -nz).multiplyScalar(5.5));
+      b.velocity.add(new THREE.Vector3(nx, 0, nz).multiplyScalar(5.5));
+      constrainMaxArenaCar(a);
+      constrainMaxArenaCar(b);
+    }
+  }
+
+  cars.forEach((car) => {
+    if (!maxMode.ball) return;
+    const dx = maxMode.ball.position.x - car.position.x;
+    const dz = maxMode.ball.position.z - car.position.z;
+    const dy = maxMode.ball.position.y - car.position.y;
+    const dist = Math.hypot(dx, dz, dy) || 0.001;
+    const minDist = MAX_BALL_RADIUS + CAR_RADIUS + 0.4;
+    if (dist >= minDist) return;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const nz = dz / dist;
+    const hitForce = Math.max(14, Math.abs(car.speed) * 0.85 + (input.boost ? 10 : 0));
+    maxMode.ballVelocity.x += nx * hitForce + car.velocity.x * 0.28;
+    maxMode.ballVelocity.y += Math.max(1.8, ny * 6.5 + 1.6);
+    maxMode.ballVelocity.z += nz * hitForce + car.velocity.z * 0.28;
+    maxMode.ball.position.x = car.position.x + nx * minDist;
+    maxMode.ball.position.y = car.position.y + ny * minDist;
+    maxMode.ball.position.z = car.position.z + nz * minDist;
+  });
+}
+
+function updateMaxBots(dt) {
+  const ballPos = maxMode.ball?.position ?? new THREE.Vector3();
+  bots.forEach((bot) => {
+    const target = getMaxBotTarget(bot);
+    const desiredHeading = Math.atan2(target.x - bot.position.x, target.z - bot.position.z);
+    const steer = THREE.MathUtils.clamp(angleDifference(bot.heading, desiredHeading), -1, 1);
+    bot.heading += steer * bot.turnRate * dt * 1.08;
+    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * 2.8);
+    const toBall = bot.position.distanceTo(ballPos);
+    const attackSpeed = THREE.MathUtils.clamp(42 + (toBall > 26 ? 10 : 0), 26, 54);
+    bot.speed += (attackSpeed - bot.speed) * dt * 2.2;
+    const forward = new THREE.Vector3(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
+    bot.velocity.copy(forward).multiplyScalar(bot.speed);
+    updateVerticalPhysics(bot, dt);
+    bot.update(dt);
+    constrainMaxArenaCar(bot);
+  });
+}
+
 function updateBots(dt) {
+  if (isMaxMode()) {
+    if (settings.devMode && devTuning.freezeBots) return;
+    updateMaxBots(dt);
+    return;
+  }
   if (settings.difficulty === "no_bots") return;
   if (settings.devMode && devTuning.freezeBots) {
     bots.forEach((bot) => {
@@ -2463,13 +3062,15 @@ function updateBoostPads() {
 function updateCamera(dt) {
   const deviceAssist = getDeviceAssistTuning();
   const cameraTarget = player.position.clone();
+  const gameDistanceMult = isMaxMode() ? 1.16 : 1;
+  const gameHeightMult = isMaxMode() ? 1.08 : 1;
   const back = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(
-    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult
+    -CAMERA_BACK_DISTANCE * deviceAssist.cameraDistanceMult * gameDistanceMult
   );
   const desired = cameraTarget
     .clone()
     .add(back)
-    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult, 0));
+    .add(new THREE.Vector3(0, CAMERA_HEIGHT * deviceAssist.cameraHeightMult * gameHeightMult, 0));
 
   if (input.focusCamera || settings.cameraFocus) {
     desired.add(new THREE.Vector3(0, 4 * deviceAssist.cameraHeightMult, 0));
@@ -2489,6 +3090,13 @@ function updateCombo(dt, steer) {
 }
 
 function updateDifficulty(dt) {
+  if (isMaxMode()) {
+    if (state.effectToastTimer > 0) {
+      state.effectToastTimer = Math.max(0, state.effectToastTimer - dt);
+      if (state.effectToastTimer === 0) state.effectToast = "";
+    }
+    return;
+  }
   const profile = getDifficultyProfile();
   const heatRamp = settings.difficulty === "no_bots" ? 0.75 : profile.heatRamp;
   state.elapsed += dt;
@@ -2508,14 +3116,15 @@ function drawMinimap() {
   const pad = 10;
   const center = size * 0.5;
   const mapRadius = center - pad;
-  const scale = mapRadius / HALF_WORLD;
+  const worldExtent = isMaxMode() ? MAX_STADIUM_RADIUS : HALF_WORLD;
+  const scale = mapRadius / worldExtent;
   const referenceHeading = state.minimapHeading;
   const cos = Math.cos(-referenceHeading);
   const sin = Math.sin(-referenceHeading);
   const forwardX = Math.sin(referenceHeading);
   const forwardZ = Math.cos(referenceHeading);
-  const anchorWorldX = player.position.x + forwardX * (HALF_WORLD * MINIMAP_FORWARD_BIAS);
-  const anchorWorldZ = player.position.z + forwardZ * (HALF_WORLD * MINIMAP_FORWARD_BIAS);
+  const anchorWorldX = player.position.x + forwardX * (worldExtent * MINIMAP_FORWARD_BIAS);
+  const anchorWorldZ = player.position.z + forwardZ * (worldExtent * MINIMAP_FORWARD_BIAS);
 
   const project = (wx, wz) => {
     const dx = wx - anchorWorldX;
@@ -2525,7 +3134,7 @@ function drawMinimap() {
     return {
       x: center + rx * scale,
       y: center - rz * scale,
-      inRange: rx * rx + rz * rz <= HALF_WORLD * HALF_WORLD
+      inRange: rx * rx + rz * rz <= worldExtent * worldExtent
     };
   };
 
@@ -2588,10 +3197,10 @@ function drawMinimap() {
   minimapCtx.strokeStyle = "rgba(135, 185, 228, 0.55)";
   minimapCtx.lineWidth = 1.2;
   const worldCorners = [
-    project(-HALF_WORLD, -HALF_WORLD),
-    project(HALF_WORLD, -HALF_WORLD),
-    project(HALF_WORLD, HALF_WORLD),
-    project(-HALF_WORLD, HALF_WORLD)
+    project(-worldExtent, -worldExtent),
+    project(worldExtent, -worldExtent),
+    project(worldExtent, worldExtent),
+    project(-worldExtent, worldExtent)
   ];
   minimapCtx.beginPath();
   minimapCtx.moveTo(worldCorners[0].x, worldCorners[0].y);
@@ -2607,7 +3216,7 @@ function drawMinimap() {
       return Math.hypot(dx, dy) > mapRadius * 1.18;
     });
     if (edgeOverflow) {
-      debugLog("minimap", "edge_projection_overflow", { halfWorld: HALF_WORLD, mapRadius, scale: Number(scale.toFixed(4)) });
+      debugLog("minimap", "edge_projection_overflow", { worldExtent, mapRadius, scale: Number(scale.toFixed(4)) });
     }
   }
 
@@ -2619,20 +3228,40 @@ function drawMinimap() {
   minimapCtx.lineTo(center, center - mapRadius + 18);
   minimapCtx.stroke();
 
-  minimapCtx.fillStyle = "rgba(255, 171, 92, 0.94)";
-  ramps.forEach((ramp) => {
-    const p = project(ramp.position.x, ramp.position.z);
-    if (!p.inRange) return;
-    const r = ramp.userData.kind === "titan" ? 4.2 : ramp.userData.kind === "mega" ? 3 : 2;
-    minimapCtx.beginPath();
-    minimapCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    minimapCtx.fill();
-  });
+  if (isMaxMode()) {
+    [-1, 1].forEach((zSign) => {
+      const p = project(0, zSign * MAX_GOAL_LINE_Z);
+      minimapCtx.fillStyle = zSign < 0 ? "rgba(86, 233, 255, 0.95)" : "rgba(255, 108, 108, 0.95)";
+      minimapCtx.fillRect(p.x - 10, p.y - 3, 20, 6);
+    });
+    if (maxMode.ball) {
+      const ballP = project(maxMode.ball.position.x, maxMode.ball.position.z);
+      minimapCtx.fillStyle = "rgba(245, 245, 242, 0.96)";
+      minimapCtx.beginPath();
+      minimapCtx.arc(ballP.x, ballP.y, 4, 0, Math.PI * 2);
+      minimapCtx.fill();
+    }
+  } else {
+    minimapCtx.fillStyle = "rgba(255, 171, 92, 0.94)";
+    ramps.forEach((ramp) => {
+      const p = project(ramp.position.x, ramp.position.z);
+      if (!p.inRange) return;
+      const r = ramp.userData.kind === "titan" ? 4.2 : ramp.userData.kind === "mega" ? 3 : 2;
+      minimapCtx.beginPath();
+      minimapCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      minimapCtx.fill();
+    });
+  }
 
   bots.forEach((bot) => {
     const p = project(bot.position.x, bot.position.z);
     if (!p.inRange) return;
-    drawHeadingMarker(p.x, p.y, bot.moveHeading, "rgba(255, 98, 98, 0.95)", 4.2);
+    const color = isMaxMode()
+      ? bot.team === "blue"
+        ? "rgba(86, 233, 255, 0.95)"
+        : "rgba(255, 108, 108, 0.95)"
+      : "rgba(255, 98, 98, 0.95)";
+    drawHeadingMarker(p.x, p.y, bot.moveHeading, color, 4.2);
   });
 
   drawHeadingMarker(center, center, MINIMAP_USE_MOVE_HEADING ? player.moveHeading : player.heading, "#7effff", 6.4);
@@ -2642,12 +3271,40 @@ function drawMinimap() {
 
 function updateHud() {
   const level = getLevel();
-  hudWorld.textContent = getWorld().name;
-  hudLevel.textContent = state.effectToast ? `${level.name} - ${state.effectToast}` : level.name;
-  hudScore.textContent = Math.floor(state.score).toString();
-  hudSpeed.textContent = `${Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT)} MPH`;
-  renderLivesHud();
-  hudCombo.textContent = `x${state.combo.toFixed(1)}`;
+  if (isMaxMode()) {
+    if (hudLabelNodes.length >= 7) {
+      hudLabelNodes[0].textContent = "Blue";
+      hudLabelNodes[1].textContent = "Red";
+      hudLabelNodes[2].textContent = "Time";
+      hudLabelNodes[3].textContent = "Mode";
+      hudLabelNodes[4].textContent = "Speed";
+      hudLabelNodes[5].textContent = "Team";
+      hudLabelNodes[6].textContent = "State";
+    }
+    hudWorld.textContent = String(maxMode.blueScore);
+    hudLevel.textContent = String(maxMode.redScore);
+    hudScore.textContent = state.overtime ? "OVERTIME" : "Arena";
+    hudSpeed.textContent = `${Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT)} MPH`;
+    hudHearts.innerHTML = "";
+    hudLives.textContent = "Blue";
+    hudCombo.textContent = state.effectToast || "3v3";
+  } else {
+    if (hudLabelNodes.length >= 7) {
+      hudLabelNodes[0].textContent = "World";
+      hudLabelNodes[1].textContent = "Level";
+      hudLabelNodes[2].textContent = "Time";
+      hudLabelNodes[3].textContent = "Score";
+      hudLabelNodes[4].textContent = "Speed";
+      hudLabelNodes[5].textContent = "Lives";
+      hudLabelNodes[6].textContent = "Drift";
+    }
+    hudWorld.textContent = getWorld().name;
+    hudLevel.textContent = state.effectToast ? `${level.name} - ${state.effectToast}` : level.name;
+    hudScore.textContent = Math.floor(state.score).toString();
+    hudSpeed.textContent = `${Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT)} MPH`;
+    renderLivesHud();
+    hudCombo.textContent = `x${state.combo.toFixed(1)}`;
+  }
   const minutes = Math.floor(state.timeLeft / 60);
   const seconds = Math.floor(state.timeLeft % 60).toString().padStart(2, "0");
   hudTime.textContent = `${minutes}:${seconds}`;
@@ -2702,6 +3359,7 @@ function loseLife() {
 }
 
 function handlePlayerHit(sourceBotId = -1) {
+  if (isMaxMode()) return;
   if (settings.devMode && devTuning.invulnerable) {
     debugLog("hits", "suppressed_by_dev_invulnerable", { sourceBotId });
     return;
@@ -2797,10 +3455,14 @@ function dispatchGameAction(action) {
     startRun(false);
     return;
   }
+  if (action === "restart-current") {
+    startRun(true);
+    return;
+  }
   if (action === "message-next") {
     if (!message.classList.contains("show")) return;
     message.classList.remove("show");
-    if (state.pendingAction === "retry") startRun(true);
+    if (state.pendingAction === "retry" || state.pendingAction === "restart-current") startRun(true);
     else advanceNext();
   }
 }
@@ -2809,13 +3471,17 @@ function showMessage(title, body, nextLabel = "Next", action = "next") {
   messageTitle.textContent = title;
   messageBody.textContent = body;
   nextBtn.textContent = nextLabel;
-  retryBtn.hidden = action === "retry";
+  retryBtn.hidden = action === "retry" || action === "restart-current";
   message.classList.add("show");
   state.running = false;
   state.pendingAction = action;
 }
 
 function completeLevel() {
+  if (isMaxMode()) {
+    showMessage("Blue Team Wins", "Arena complete. Press Enter to replay.", "Replay", "restart-current");
+    return;
+  }
   const world = getWorld();
   const level = getLevel();
   const nextProgress = getNextProgressIndices();
@@ -2828,7 +3494,8 @@ function completeLevel() {
         invertSteer: settings.invertSteer,
         cameraFocus: settings.cameraFocus,
         rampDensity: settings.rampDensity,
-        deviceMode: settings.deviceMode
+        deviceMode: settings.deviceMode,
+        activeGameMode: settings.activeGameMode
       },
       customization: {
         bodyId: customization.bodyId,
@@ -2889,15 +3556,30 @@ function animate(now) {
 
     updatePlayer(dt);
     updateBots(dt);
-
-    updateObstacles(player);
-    bots.forEach((bot) => updateObstacles(bot));
-    updatePowerups(dt);
-    updatePowerupCollisions();
-    updateBoostPads();
+    if (isMaxMode()) {
+      updateMaxBall(dt);
+      resolveMaxBumps();
+      if (state.timeLeft <= 0 && !state.overtime) {
+        if (maxMode.blueScore === maxMode.redScore) {
+          state.overtime = true;
+          state.timeLeft = 0;
+          setEffectToast("Overtime");
+        } else {
+          showMessage(maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins", "Press Enter to replay the arena.", "Replay", "restart-current");
+        }
+      } else if (state.overtime && maxMode.blueScore !== maxMode.redScore) {
+        showMessage(maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins", "Golden goal locked it in. Press Enter to replay.", "Replay", "restart-current");
+      }
+    } else {
+      updateObstacles(player);
+      bots.forEach((bot) => updateObstacles(bot));
+      updatePowerups(dt);
+      updatePowerupCollisions();
+      updateBoostPads();
+    }
     updateFx(dt);
 
-    if (settings.difficulty === "no_bots" && hasMovementInput() && Math.abs(player.speed) < 0.2) {
+    if (!isMaxMode() && settings.difficulty === "no_bots" && hasMovementInput() && Math.abs(player.speed) < 0.2) {
       state.noBotsRecoveryTimer += dt;
       if (state.noBotsRecoveryTimer > 0.55) {
         const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
@@ -2912,7 +3594,7 @@ function animate(now) {
       state.noBotsRecoveryTimer = 0;
     }
 
-    if (state.timeLeft <= 0) {
+    if (!isMaxMode() && state.timeLeft <= 0) {
       completeLevel();
     }
     if (DEBUG_FLAGS.enabled && DEBUG_FLAGS.minimap) {
@@ -3153,11 +3835,20 @@ bindPressAction(menuClose, () => {
 
 tabButtons.forEach((button) => {
   bindPressAction(button, () => {
+    if (button.hidden) return;
     tabButtons.forEach((btn) => btn.classList.remove("active"));
     tabPanels.forEach((panel) => panel.classList.remove("active"));
     button.classList.add("active");
     const target = document.getElementById(`tab-${button.dataset.tab}`);
     if (target) target.classList.add("active");
+  });
+});
+
+gameCards.forEach((card) => {
+  bindPressAction(card, () => {
+    if (!settings.devMode) return;
+    setActiveGameMode(card.dataset.gameMode, { save: true, reset: false });
+    setEffectToast(getActiveGameMeta().title);
   });
 });
 
