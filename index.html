@@ -64,6 +64,17 @@
 
       <div class="debug-hud" id="debug-hud" hidden></div>
 
+      <div class="match-panel" id="match-panel" hidden>
+        <div class="match-panel-header">
+          <span class="eyebrow">Arena Box Score</span>
+          <strong id="match-panel-score">Blue 0 - 0 Red</strong>
+        </div>
+        <div class="match-panel-body">
+          <div class="match-panel-stats" id="match-panel-stats"></div>
+          <p class="match-panel-meta" id="match-panel-meta">No replay loaded.</p>
+        </div>
+      </div>
+
       <div class="touch-controls" id="touch-controls">
         <div class="touch-stick-wrap">
           <div id="touch-steer-pad" class="touch-steer-pad" aria-label="Touch Steering">
@@ -215,7 +226,24 @@
                         <span>Debug Logs</span>
                         <input id="dev-debug-logs" type="checkbox" />
                       </label>
+                      <label class="field toggle">
+                        <span>Demolitions</span>
+                        <input id="dev-max-demo-toggle" type="checkbox" />
+                      </label>
+                      <label class="field toggle">
+                        <span>Goal Replay</span>
+                        <input id="dev-max-replay-toggle" type="checkbox" />
+                      </label>
+                      <label class="field">
+                        <span>Boost Pickup</span>
+                        <select id="dev-max-boost-variant"></select>
+                      </label>
+                      <label class="field">
+                        <span>World Modifier</span>
+                        <select id="dev-world-modifier-select"></select>
+                      </label>
                     </div>
+                    <div class="dev-max-summary" id="dev-max-summary"></div>
                   </div>
                 </div>
                 <div class="cta-row dev-tools-actions">
@@ -226,6 +254,8 @@
                   <button class="ghost" id="dev-clear-level" type="button">Clear Level</button>
                   <button class="ghost" id="dev-reset-match" type="button">Reset Match</button>
                   <button class="ghost" id="dev-reset-score" type="button">Reset Score</button>
+                  <button class="ghost" id="dev-trigger-replay" type="button">Replay Goal</button>
+                  <button class="ghost" id="dev-force-demo" type="button">Force Demo</button>
                   <button class="ghost" id="dev-reset-tuning" type="button">Reset Dev Tweaks</button>
                 </div>
               </div>

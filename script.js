@@ -17,6 +17,10 @@ const boostBar = document.getElementById("boost-bar");
 const shieldBar = document.getElementById("shield-bar");
 const statusLabelNodes = document.querySelectorAll(".status .pill .label");
 const debugHud = document.getElementById("debug-hud");
+const matchPanel = document.getElementById("match-panel");
+const matchPanelScore = document.getElementById("match-panel-score");
+const matchPanelStats = document.getElementById("match-panel-stats");
+const matchPanelMeta = document.getElementById("match-panel-meta");
 const progressBar = document.getElementById("progress");
 const hudWorld = document.getElementById("hud-world");
 const hudLevel = document.getElementById("hud-level");
@@ -61,6 +65,11 @@ const devWorldSelect = document.getElementById("dev-world-select");
 const devLevelSelect = document.getElementById("dev-level-select");
 const devDebugHud = document.getElementById("dev-debug-hud");
 const devDebugLogs = document.getElementById("dev-debug-logs");
+const devMaxDemoToggle = document.getElementById("dev-max-demo-toggle");
+const devMaxReplayToggle = document.getElementById("dev-max-replay-toggle");
+const devMaxBoostVariant = document.getElementById("dev-max-boost-variant");
+const devWorldModifierSelect = document.getElementById("dev-world-modifier-select");
+const devMaxSummary = document.getElementById("dev-max-summary");
 const devId33Panel = document.getElementById("dev-id33-panel");
 const devMaxPanel = document.getElementById("dev-max-panel");
 const devRefillBoost = document.getElementById("dev-refill-boost");
@@ -70,6 +79,8 @@ const devHeal = document.getElementById("dev-heal");
 const devClearLevel = document.getElementById("dev-clear-level");
 const devResetMatch = document.getElementById("dev-reset-match");
 const devResetScore = document.getElementById("dev-reset-score");
+const devTriggerReplay = document.getElementById("dev-trigger-replay");
+const devForceDemo = document.getElementById("dev-force-demo");
 const devResetTuning = document.getElementById("dev-reset-tuning");
 const deviceModeSelect = document.getElementById("device-mode-select");
 const deviceModeActive = document.getElementById("device-mode-active");
@@ -96,7 +107,7 @@ renderer.shadowMap.enabled = false;
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x0b0f14, 48, 620);
 
-const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 600);
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 860);
 camera.position.set(0, 7.5, 14);
 
 const hemi = new THREE.HemisphereLight(0xf4fbff, 0x12334f, 1.05);
@@ -189,12 +200,163 @@ const DEFAULT_CUSTOMIZATION = {
   spoilerId: "none",
   glowId: "cyan"
 };
+const DEFAULT_MAX_TEAM_CUSTOMIZATION = {
+  blue: {
+    paintId: "frost",
+    accentId: "ice",
+    tintId: "midnight",
+    glowId: "cyan"
+  },
+  red: {
+    paintId: "ember",
+    accentId: "copper",
+    tintId: "sunset",
+    glowId: "lava"
+  }
+};
 const DEFAULT_DEV_TUNING = {
   playerSpeedMult: 1,
   botSpeedMult: 1,
   infiniteBoost: false,
   invulnerable: false,
-  freezeBots: false
+  freezeBots: false,
+  allowDemolitions: true,
+  allowReplay: true,
+  maxBoostVariant: "super",
+  worldModifier: "world"
+};
+const DRIVING_TUNING = {
+  grounded: {
+    steerFilter: 8.4,
+    driftSteerFilter: 5.1,
+    turnAssistBase: 0.8,
+    turnAssistLowSpeedBonus: 0.46,
+    driftTurnMult: 1.22,
+    coastDragBase: 6.1,
+    coastDragSpeedMult: 3.8,
+    brakeMult: 1.02,
+    touchSlipMult: 0.95
+  },
+  airborne: {
+    steerMult: 0.74,
+    accelMult: 0.92,
+    boostAccelMult: 1.16,
+    carryCoastMult: 0.18
+  },
+  maxMode: {
+    speedMult: 0.96,
+    turnMult: 1.06,
+    capMult: 1,
+    turnAssistBase: 1.06,
+    turnAssistLowSpeedBonus: 0.58,
+    coastDragBase: 3.8,
+    coastDragSpeedMult: 2.25,
+    roadSlipMult: 0.72,
+    driftTurnMult: 1.14
+  }
+};
+const WORLD_RULES = [
+  {
+    id: "cinder_city",
+    name: "Cinder City",
+    gripMult: 0.99,
+    driftSlipMult: 1.08,
+    boostMult: 1.04,
+    coastDragMult: 0.97,
+    padEnergyMult: 1.06,
+    rampKickMult: 1.02
+  },
+  {
+    id: "glacier_surge",
+    name: "Glacier Surge",
+    gripMult: 0.9,
+    driftSlipMult: 1.18,
+    boostMult: 0.98,
+    coastDragMult: 0.92,
+    padEnergyMult: 1,
+    rampKickMult: 1.01
+  },
+  {
+    id: "solar_rift",
+    name: "Solar Rift",
+    gripMult: 1.02,
+    driftSlipMult: 1,
+    boostMult: 1.08,
+    coastDragMult: 0.96,
+    padEnergyMult: 1.1,
+    rampKickMult: 1.08
+  },
+  {
+    id: "tempest_grid",
+    name: "Tempest Grid",
+    gripMult: 1.06,
+    driftSlipMult: 0.94,
+    boostMult: 1.03,
+    coastDragMult: 1.02,
+    padEnergyMult: 1.02,
+    rampKickMult: 0.98
+  },
+  {
+    id: "obsidian_expanse",
+    name: "Obsidian Expanse",
+    gripMult: 1.1,
+    driftSlipMult: 0.9,
+    boostMult: 0.99,
+    coastDragMult: 1.05,
+    padEnergyMult: 0.96,
+    rampKickMult: 1.04
+  }
+];
+const WORLD_MODIFIER_RULES = {
+  world: { label: "World Native", gripMult: 1, driftSlipMult: 1, boostMult: 1, coastDragMult: 1, padEnergyMult: 1, rampKickMult: 1 },
+  neutral: { label: "Neutral", gripMult: 1, driftSlipMult: 1, boostMult: 1, coastDragMult: 1, padEnergyMult: 1, rampKickMult: 1 },
+  traction_lab: { label: "Traction Lab", gripMult: 1.12, driftSlipMult: 0.88, boostMult: 1.02, coastDragMult: 1.03, padEnergyMult: 0.98, rampKickMult: 0.96 },
+  drift_lab: { label: "Drift Lab", gripMult: 0.86, driftSlipMult: 1.18, boostMult: 1.03, coastDragMult: 0.94, padEnergyMult: 1.02, rampKickMult: 1 },
+  boost_lab: { label: "Boost Lab", gripMult: 1, driftSlipMult: 1, boostMult: 1.14, coastDragMult: 0.95, padEnergyMult: 1.18, rampKickMult: 1.05 }
+};
+const MAX_BOOST_VARIANTS = [
+  { id: "standard", name: "Standard", pickupBoost: 0.32, padSpeedMult: 1.18, padDuration: 1.6, ballImpulseMult: 1, carImpulseMult: 1 },
+  { id: "super", name: "Super Boost", pickupBoost: 0.48, padSpeedMult: 1.3, padDuration: 2.4, ballImpulseMult: 1.18, carImpulseMult: 1.12 },
+  { id: "hyper", name: "Hyper Charge", pickupBoost: 0.62, padSpeedMult: 1.42, padDuration: 2.7, ballImpulseMult: 1.28, carImpulseMult: 1.18 }
+];
+const MAX_BALL_TUNING = {
+  kickoffSpeed: 0,
+  dragGrounded: 0.9984,
+  dragAirborne: 0.9991,
+  groundRetention: 0.996,
+  bounceY: 0.74,
+  wallBounce: 0.88,
+  carImpulseBase: 12.5,
+  carImpulseSpeedMult: 0.72,
+  boostImpulseBonus: 12,
+  verticalImpulseBase: 0.76,
+  verticalImpulseSpeedMult: 3.6,
+  minHitForce: 12
+};
+const MAX_GOAL_RULES = {
+  frontPlaneOffset: 2,
+  backPlanePadding: 4,
+  mouthWidthPadding: 2,
+  mouthHeightPadding: 1
+};
+const MAX_DEMOLITION_RULES = {
+  respawnDelay: 2.35,
+  relativeSpeedThreshold: 47,
+  approachDotThreshold: 0.55,
+  impactDamage: 999,
+  explosionBurstCount: 32
+};
+const MAX_REPLAY_RULES = {
+  sampleRate: 1 / 14,
+  maxFrames: 84,
+  playbackFps: 14,
+  playbackDuration: 3.4
+};
+const MAX_WALL_RIDE_RULES = {
+  startBand: 34,
+  maxHeight: 18,
+  pitchMax: Math.PI * 0.38,
+  stickSpeed: 22
 };
 const MINIMAP_FORWARD_BIAS = 0.2;
 const MINIMAP_HEADING_SMOOTH = 10;
@@ -632,6 +794,11 @@ const customization = {
   ...DEFAULT_CUSTOMIZATION
 };
 
+const maxTeamCustomization = {
+  blue: { ...DEFAULT_MAX_TEAM_CUSTOMIZATION.blue },
+  red: { ...DEFAULT_MAX_TEAM_CUSTOMIZATION.red }
+};
+
 const devTuning = {
   ...DEFAULT_DEV_TUNING
 };
@@ -682,7 +849,8 @@ const state = {
   deviceInputMode: "auto",
   overtime: false,
   playerLoadoutStats: null,
-  deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop }
+  deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop },
+  steppingExternally: false
 };
 
 const maxMode = {
@@ -694,7 +862,17 @@ const maxMode = {
   redScore: 0,
   goalFlashTimer: 0,
   teamCars: [],
-  lastScoredTeam: null
+  lastScoredTeam: null,
+  touchChain: [],
+  stats: null,
+  replayBuffer: [],
+  replaySampleTimer: 0,
+  replayActive: false,
+  replayFrames: [],
+  replayFrameIndex: 0,
+  replayFrameTimer: 0,
+  replayMeta: "",
+  pendingKickoff: null
 };
 
 function setDebugFlagsEnabled(enabled) {
@@ -912,16 +1090,20 @@ function clampCustomizationToUnlocks(progress = getProgressSnapshot()) {
 }
 
 function getCurrentCustomization() {
+  const activeTeamSkin =
+    isMaxMode() && player.team && maxTeamCustomization[player.team]
+      ? maxTeamCustomization[player.team]
+      : customization;
   return {
     body: getOptionById(BODY_OPTIONS, customization.bodyId, DEFAULT_CUSTOMIZATION.bodyId),
     wheels: getOptionById(WHEEL_OPTIONS, customization.wheelId, DEFAULT_CUSTOMIZATION.wheelId),
     style: getOptionById(STYLE_OPTIONS, customization.styleId, DEFAULT_CUSTOMIZATION.styleId),
     power: getOptionById(POWER_OPTIONS, customization.powerId, DEFAULT_CUSTOMIZATION.powerId),
-    paint: getOptionById(PAINT_OPTIONS, customization.paintId, DEFAULT_CUSTOMIZATION.paintId),
-    accent: getOptionById(ACCENT_OPTIONS, customization.accentId, DEFAULT_CUSTOMIZATION.accentId),
-    tint: getOptionById(TINT_OPTIONS, customization.tintId, DEFAULT_CUSTOMIZATION.tintId),
+    paint: getOptionById(PAINT_OPTIONS, activeTeamSkin.paintId, DEFAULT_CUSTOMIZATION.paintId),
+    accent: getOptionById(ACCENT_OPTIONS, activeTeamSkin.accentId, DEFAULT_CUSTOMIZATION.accentId),
+    tint: getOptionById(TINT_OPTIONS, activeTeamSkin.tintId, DEFAULT_CUSTOMIZATION.tintId),
     spoiler: getOptionById(SPOILER_OPTIONS, customization.spoilerId, DEFAULT_CUSTOMIZATION.spoilerId),
-    glow: getOptionById(GLOW_OPTIONS, customization.glowId, DEFAULT_CUSTOMIZATION.glowId)
+    glow: getOptionById(GLOW_OPTIONS, activeTeamSkin.glowId, DEFAULT_CUSTOMIZATION.glowId)
   };
 }
 
@@ -969,6 +1151,127 @@ function applyRuntimePlayerStats() {
   player.driftGrip = loadoutStats.driftGrip;
 }
 
+function getCurrentWorldRule() {
+  if (isMaxMode()) {
+    return {
+      id: "max_arena",
+      name: "Max Arena",
+      gripMult: 1,
+      driftSlipMult: 1,
+      boostMult: 1,
+      coastDragMult: 1,
+      padEnergyMult: 1,
+      rampKickMult: 1
+    };
+  }
+  return WORLD_RULES[state.worldIndex] ?? WORLD_RULES[0];
+}
+
+function getWorldModifierRule() {
+  return WORLD_MODIFIER_RULES[devTuning.worldModifier] ?? WORLD_MODIFIER_RULES.world;
+}
+
+function getCombinedWorldRule() {
+  const base = getCurrentWorldRule();
+  const modifier = getWorldModifierRule();
+  if (devTuning.worldModifier === "neutral") {
+    return {
+      id: "neutral",
+      name: "Neutral",
+      gripMult: 1,
+      driftSlipMult: 1,
+      boostMult: 1,
+      coastDragMult: 1,
+      padEnergyMult: 1,
+      rampKickMult: 1
+    };
+  }
+  return {
+    id: base.id,
+    name: modifier.label === "World Native" ? base.name : `${base.name} + ${modifier.label}`,
+    gripMult: base.gripMult * modifier.gripMult,
+    driftSlipMult: base.driftSlipMult * modifier.driftSlipMult,
+    boostMult: base.boostMult * modifier.boostMult,
+    coastDragMult: base.coastDragMult * modifier.coastDragMult,
+    padEnergyMult: base.padEnergyMult * modifier.padEnergyMult,
+    rampKickMult: base.rampKickMult * modifier.rampKickMult
+  };
+}
+
+function getActiveMaxBoostVariant() {
+  return MAX_BOOST_VARIANTS.find((variant) => variant.id === devTuning.maxBoostVariant) ?? MAX_BOOST_VARIANTS[1];
+}
+
+function createEmptyMatchStats() {
+  return {
+    events: [],
+    lastGoal: null,
+    teams: {
+      blue: { goals: 0, shots: 0, saves: 0, demolitions: 0 },
+      red: { goals: 0, shots: 0, saves: 0, demolitions: 0 }
+    }
+  };
+}
+
+function resetCarMatchStats(car) {
+  car.matchStats = {
+    goals: 0,
+    assists: 0,
+    saves: 0,
+    shots: 0,
+    demolitions: 0
+  };
+  car.lastTouchAt = 0;
+  car.lastTouchType = null;
+  car.lastShotAt = 0;
+}
+
+function resetMaxMatchState() {
+  maxMode.stats = createEmptyMatchStats();
+  maxMode.touchChain = [];
+  maxMode.replayBuffer = [];
+  maxMode.replaySampleTimer = 0;
+  maxMode.replayActive = false;
+  maxMode.replayFrames = [];
+  maxMode.replayFrameIndex = 0;
+  maxMode.replayFrameTimer = 0;
+  maxMode.replayMeta = "";
+  maxMode.pendingKickoff = null;
+  [player, ...bots].forEach(resetCarMatchStats);
+}
+
+function getTeamSpawnSlots(team) {
+  return team === "blue"
+    ? [
+        [0, -260],
+        [0, -326],
+        [-78, -210],
+        [78, -182]
+      ]
+    : [
+        [0, 326],
+        [-88, 214],
+        [0, 154],
+        [88, 214]
+      ];
+}
+
+function getCarLabel(car) {
+  if (car === player) return "Player";
+  if (car?.team) return `${car.team === "blue" ? "Blue" : "Red"} ${car.role ?? "car"}`;
+  return "Bot";
+}
+
+function addMatchEvent(type, payload = {}) {
+  if (!maxMode.stats) maxMode.stats = createEmptyMatchStats();
+  maxMode.stats.events.unshift({
+    type,
+    at: Number(state.elapsed.toFixed(2)),
+    ...payload
+  });
+  maxMode.stats.events = maxMode.stats.events.slice(0, 8);
+}
+
 function savePersistentState() {
   const payload = {
     worldIndex: state.worldIndex,
@@ -987,7 +1290,11 @@ function savePersistentState() {
       botSpeedMult: devTuning.botSpeedMult,
       infiniteBoost: devTuning.infiniteBoost,
       invulnerable: devTuning.invulnerable,
-      freezeBots: devTuning.freezeBots
+      freezeBots: devTuning.freezeBots,
+      allowDemolitions: devTuning.allowDemolitions,
+      allowReplay: devTuning.allowReplay,
+      maxBoostVariant: devTuning.maxBoostVariant,
+      worldModifier: devTuning.worldModifier
     },
     customization: {
       bodyId: customization.bodyId,
@@ -999,6 +1306,10 @@ function savePersistentState() {
       tintId: customization.tintId,
       spoilerId: customization.spoilerId,
       glowId: customization.glowId
+    },
+    maxTeamCustomization: {
+      blue: { ...maxTeamCustomization.blue },
+      red: { ...maxTeamCustomization.red }
     }
   };
   try {
@@ -1029,6 +1340,10 @@ function loadPersistentState() {
       if (typeof data.devTuning.infiniteBoost === "boolean") devTuning.infiniteBoost = data.devTuning.infiniteBoost;
       if (typeof data.devTuning.invulnerable === "boolean") devTuning.invulnerable = data.devTuning.invulnerable;
       if (typeof data.devTuning.freezeBots === "boolean") devTuning.freezeBots = data.devTuning.freezeBots;
+      if (typeof data.devTuning.allowDemolitions === "boolean") devTuning.allowDemolitions = data.devTuning.allowDemolitions;
+      if (typeof data.devTuning.allowReplay === "boolean") devTuning.allowReplay = data.devTuning.allowReplay;
+      if (typeof data.devTuning.maxBoostVariant === "string") devTuning.maxBoostVariant = data.devTuning.maxBoostVariant;
+      if (typeof data.devTuning.worldModifier === "string") devTuning.worldModifier = data.devTuning.worldModifier;
     }
     if (data.customization && typeof data.customization === "object") {
       if (typeof data.customization.bodyId === "string") customization.bodyId = data.customization.bodyId;
@@ -1040,6 +1355,16 @@ function loadPersistentState() {
       if (typeof data.customization.tintId === "string") customization.tintId = data.customization.tintId;
       if (typeof data.customization.spoilerId === "string") customization.spoilerId = data.customization.spoilerId;
       if (typeof data.customization.glowId === "string") customization.glowId = data.customization.glowId;
+    }
+    if (data.maxTeamCustomization && typeof data.maxTeamCustomization === "object") {
+      ["blue", "red"].forEach((team) => {
+        const teamConfig = data.maxTeamCustomization[team];
+        if (!teamConfig || typeof teamConfig !== "object") return;
+        if (typeof teamConfig.paintId === "string") maxTeamCustomization[team].paintId = teamConfig.paintId;
+        if (typeof teamConfig.accentId === "string") maxTeamCustomization[team].accentId = teamConfig.accentId;
+        if (typeof teamConfig.tintId === "string") maxTeamCustomization[team].tintId = teamConfig.tintId;
+        if (typeof teamConfig.glowId === "string") maxTeamCustomization[team].glowId = teamConfig.glowId;
+      });
     }
     const worldIndex = Number.isFinite(data.worldIndex) ? data.worldIndex : 0;
     const safeWorld = clampWorldIndex(worldIndex);
@@ -1095,6 +1420,12 @@ function refreshDevModeUi() {
   if (devFreezeBots) {
     devFreezeBots.checked = settings.devMode && devTuning.freezeBots;
   }
+  if (devMaxDemoToggle) {
+    devMaxDemoToggle.checked = settings.devMode && devTuning.allowDemolitions;
+  }
+  if (devMaxReplayToggle) {
+    devMaxReplayToggle.checked = settings.devMode && devTuning.allowReplay;
+  }
   if (devDebugHud) {
     devDebugHud.checked = DEBUG_FLAGS.enabled;
   }
@@ -1133,6 +1464,36 @@ function refreshDevModeUi() {
       option.selected = index === state.levelIndex;
       devLevelSelect.appendChild(option);
     });
+  }
+  if (devMaxBoostVariant) {
+    devMaxBoostVariant.innerHTML = "";
+    MAX_BOOST_VARIANTS.forEach((variant) => {
+      const option = document.createElement("option");
+      option.value = variant.id;
+      option.textContent = variant.name;
+      option.selected = variant.id === devTuning.maxBoostVariant;
+      devMaxBoostVariant.appendChild(option);
+    });
+  }
+  if (devWorldModifierSelect) {
+    devWorldModifierSelect.innerHTML = "";
+    Object.entries(WORLD_MODIFIER_RULES).forEach(([id, rule]) => {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = rule.label;
+      option.selected = id === devTuning.worldModifier;
+      devWorldModifierSelect.appendChild(option);
+    });
+  }
+  if (devMaxSummary) {
+    const boostVariant = getActiveMaxBoostVariant();
+    const worldRule = getCombinedWorldRule();
+    devMaxSummary.innerHTML = `
+      <div class="match-stat"><span>Replay</span><strong>${maxMode.replayMeta || "Ready"}</strong></div>
+      <div class="match-stat"><span>Boost</span><strong>${boostVariant.name}</strong></div>
+      <div class="match-stat"><span>World</span><strong>${worldRule.name}</strong></div>
+      <div class="match-stat"><span>Demos</span><strong>${devTuning.allowDemolitions ? "On" : "Off"}</strong></div>
+    `;
   }
   refreshGamesUi();
 }
@@ -1530,6 +1891,22 @@ class Car {
     this.maxStunTimer = 0;
     this.maxBoostTimer = 0;
     this.maxBotLungeTimer = 0;
+    this.demolished = false;
+    this.respawnTimer = 0;
+    this.respawnPoint = null;
+    this.lastTouchAt = 0;
+    this.lastTouchType = null;
+    this.lastShotAt = 0;
+    this.onWall = false;
+    this.surfacePitch = 0;
+    this.surfaceRoll = 0;
+    this.matchStats = {
+      goals: 0,
+      assists: 0,
+      saves: 0,
+      shots: 0,
+      demolitions: 0
+    };
     this.healthBarGroup = new THREE.Group();
     this.healthBarBg = new THREE.Mesh(
       new THREE.PlaneGeometry(2.1, 0.18),
@@ -1674,6 +2051,11 @@ class Car {
 
   update(dt) {
     this.prevPosition.copy(this.position);
+    if (this.demolished) {
+      this.group.visible = false;
+      this.healthBarGroup.visible = false;
+      return;
+    }
     this.position.addScaledVector(this.velocity, dt);
     this.group.position.copy(this.position);
     this.group.rotation.y = this.heading;
@@ -1695,9 +2077,12 @@ class Car {
       this.visualRoot.rotation.x = THREE.MathUtils.lerp(this.visualRoot.rotation.x, 0, Math.min(1, dt * 12));
       this.visualRoot.rotation.z = THREE.MathUtils.lerp(this.visualRoot.rotation.z, 0, Math.min(1, dt * 12));
     }
+    this.visualRoot.rotation.z += this.surfaceRoll;
+    this.visualRoot.rotation.x += this.surfacePitch;
     this.updateWheels(this.speed * dt);
     this.healthBarGroup.position.set(this.position.x, this.position.y + 2.8, this.position.z);
     this.healthBarGroup.quaternion.copy(camera.quaternion);
+    this.group.visible = true;
   }
 
   triggerBackflip() {
@@ -1709,7 +2094,7 @@ class Car {
   }
 
   setHealthBar(percent, visible) {
-    this.healthBarGroup.visible = visible;
+    this.healthBarGroup.visible = visible && !this.demolished;
     if (!visible) return;
     const clamped = THREE.MathUtils.clamp(percent, 0, 1);
     this.healthBarFill.scale.x = Math.max(0.001, clamped);
@@ -1719,6 +2104,18 @@ class Car {
       clamped > 0.3 ? 0xffd86d :
       0xff7979;
     this.healthBarFill.material.color.setHex(color);
+  }
+
+  setDemolished(demolished) {
+    this.demolished = demolished;
+    this.group.visible = !demolished;
+    this.healthBarGroup.visible = false;
+    if (demolished) {
+      this.speed = 0;
+      this.velocity.set(0, 0, 0);
+      this.verticalVel = 0;
+      this.maxStunTimer = 0;
+    }
   }
 }
 
@@ -2245,11 +2642,28 @@ function applyLevelIdentity(world) {
 }
 
 function getMaxSurfaceState(x, z) {
-  return { radius: Math.hypot(x, z), t: 0, height: 0, slope: 0, tangentPitch: 0 };
+  const sideDist = MAX_ARENA_HALF_WIDTH - Math.abs(x);
+  const endDist = MAX_ARENA_HALF_LENGTH - Math.abs(z);
+  const dominant = sideDist < endDist ? "side" : "end";
+  const inwardDistance = dominant === "side" ? sideDist : endDist;
+  const rampT = THREE.MathUtils.clamp((MAX_WALL_RIDE_RULES.startBand - inwardDistance) / MAX_WALL_RIDE_RULES.startBand, 0, 1);
+  const eased = rampT <= 0 ? 0 : 1 - Math.pow(1 - rampT, 1.8);
+  const height = eased * MAX_WALL_RIDE_RULES.maxHeight;
+  const wallSign = dominant === "side" ? Math.sign(x || 1) : Math.sign(z || 1);
+  return {
+    radius: Math.hypot(x, z),
+    dominant,
+    inwardDistance,
+    t: eased,
+    height,
+    slope: eased,
+    pitch: dominant === "end" ? -wallSign * eased * MAX_WALL_RIDE_RULES.pitchMax : 0,
+    roll: dominant === "side" ? wallSign * eased * MAX_WALL_RIDE_RULES.pitchMax : 0
+  };
 }
 
 function getMaxSurfaceHeight(x, z) {
-  return 0;
+  return getMaxSurfaceState(x, z).height;
 }
 
 function makeMaxGoal(team, zSign) {
@@ -2404,6 +2818,7 @@ function buildMaxArena() {
   maxMode.redScore = 0;
   maxMode.goalFlashTimer = 0;
   maxMode.lastScoredTeam = null;
+  resetMaxMatchState();
   if (scene.fog) {
     scene.fog.near = 120;
     scene.fog.far = 980;
@@ -2538,6 +2953,7 @@ function resetLevel() {
 
   const spawnX = isMaxMode() ? 0 : PLAYER_SPAWN_X;
   const spawnZ = isMaxMode() ? -260 : PLAYER_SPAWN_Z;
+  player.setDemolished(false);
   player.setPosition(spawnX, isMaxMode() ? getMaxSurfaceHeight(spawnX, spawnZ) : 0, spawnZ);
   player.velocity.set(0, 0, 0);
   player.speed = 0;
@@ -2570,6 +2986,7 @@ function resetLevel() {
     state.lives = 3;
     state.shield = 0;
     state.boost = 1;
+    resetMaxMatchState();
   } else {
     spawnPowerups();
   }
@@ -2586,6 +3003,10 @@ function clearBotState() {
 
 function spawnMaxBots() {
   clearBotState();
+  player.team = "blue";
+  player.role = "striker";
+  player.visualRoot.scale.setScalar(1.14);
+  player.collisionRadius = 1.72;
   const botSpecs = [
     { team: "blue", role: "goalie", color: 0xa5f4ff, x: 0, z: -326, heading: 0 },
     { team: "blue", role: "support", color: 0x5feaff, x: -78, z: -210, heading: 0.05 },
@@ -2605,37 +3026,44 @@ function spawnMaxBots() {
     bot.maxSpeed = spec.role === "goalie" ? 42 : 49;
     bot.accel = spec.role === "goalie" ? 20 : 19.5;
     bot.turnRate = spec.role === "goalie" ? 3.5 : 3.2;
+    bot.visualRoot.scale.setScalar(1.12);
+    bot.collisionRadius = 1.68;
     if (spec.role === "goalie") {
-      bot.visualRoot.scale.setScalar(1.15);
-      bot.collisionRadius = 1.75;
+      bot.visualRoot.scale.setScalar(1.26);
+      bot.collisionRadius = 1.95;
     }
     bot.maxHealth = MAX_HEALTH_MAX;
     bot.maxStunTimer = 0;
     bot.maxBoostTimer = 0;
     bot.maxBotLungeTimer = 0;
+    resetCarMatchStats(bot);
     bots.push(bot);
   });
   maxMode.teamCars = [player, ...bots];
 }
 
 function constrainMaxArenaCar(car, dt = 0.016) {
-  const limitX = MAX_ARENA_HALF_WIDTH - 5;
-  const limitZ = MAX_ARENA_HALF_LENGTH - 5;
+  const limitX = MAX_ARENA_HALF_WIDTH - 2;
+  const limitZ = MAX_ARENA_HALF_LENGTH - 2;
   if (car.position.x < -limitX || car.position.x > limitX) {
     const side = Math.sign(car.position.x) || 1;
     car.position.x = THREE.MathUtils.clamp(car.position.x, -limitX, limitX);
-    car.velocity.x = -Math.abs(car.velocity.x) * side * 0.38;
-    car.speed *= 0.93;
+    car.velocity.x = -Math.abs(car.velocity.x) * side * 0.34;
+    car.speed *= 0.95;
   }
   if (car.position.z < -limitZ || car.position.z > limitZ) {
     const side = Math.sign(car.position.z) || 1;
     car.position.z = THREE.MathUtils.clamp(car.position.z, -limitZ, limitZ);
-    car.velocity.z = -Math.abs(car.velocity.z) * side * 0.38;
-    car.speed *= 0.93;
+    car.velocity.z = -Math.abs(car.velocity.z) * side * 0.34;
+    car.speed *= 0.95;
   }
-  car.position.y = Math.max(0, car.position.y);
+  const surface = getMaxSurfaceState(car.position.x, car.position.z);
+  const surfaceHeight = getMaxSurfaceHeight(car.position.x, car.position.z);
+  car.position.y = Math.max(surfaceHeight, car.position.y);
+  car.onWall = surface.t > 0.08 && Math.abs(car.speed) > MAX_WALL_RIDE_RULES.stickSpeed * 0.6;
+  car.surfacePitch += (surface.pitch - car.surfacePitch) * Math.min(1, dt * 7);
+  car.surfaceRoll += (surface.roll - car.surfaceRoll) * Math.min(1, dt * 7);
   car.group.position.copy(car.position);
-  car.visualRoot.rotation.z = THREE.MathUtils.lerp(car.visualRoot.rotation.z, 0, Math.min(1, dt * 7));
 }
 
 function getMaxBotTarget(bot) {
@@ -2695,6 +3123,10 @@ function spawnBots() {
     spawnMaxBots();
     return;
   }
+  player.team = null;
+  player.role = null;
+  player.visualRoot.scale.setScalar(1);
+  player.collisionRadius = CAR_RADIUS;
   if (settings.difficulty === "no_bots") return;
   const level = getLevel();
   const palette = getWorld().accents;
@@ -2747,15 +3179,19 @@ function renderCustomizationOptions(selectEl, options, selectedId, progress) {
 function refreshCustomizationMenu() {
   const progress = getProgressSnapshot();
   clampCustomizationToUnlocks(progress);
+  const activePaintId = isMaxMode() && player.team ? maxTeamCustomization[player.team].paintId : customization.paintId;
+  const activeAccentId = isMaxMode() && player.team ? maxTeamCustomization[player.team].accentId : customization.accentId;
+  const activeTintId = isMaxMode() && player.team ? maxTeamCustomization[player.team].tintId : customization.tintId;
+  const activeGlowId = isMaxMode() && player.team ? maxTeamCustomization[player.team].glowId : customization.glowId;
   renderCustomizationOptions(bodySelect, BODY_OPTIONS, customization.bodyId, progress);
   renderCustomizationOptions(wheelSelect, WHEEL_OPTIONS, customization.wheelId, progress);
   renderCustomizationOptions(styleSelect, STYLE_OPTIONS, customization.styleId, progress);
   renderCustomizationOptions(powerSelect, POWER_OPTIONS, customization.powerId, progress);
-  renderCustomizationOptions(paintSelect, PAINT_OPTIONS, customization.paintId, progress);
-  renderCustomizationOptions(accentSelect, ACCENT_OPTIONS, customization.accentId, progress);
-  renderCustomizationOptions(tintSelect, TINT_OPTIONS, customization.tintId, progress);
+  renderCustomizationOptions(paintSelect, PAINT_OPTIONS, activePaintId, progress);
+  renderCustomizationOptions(accentSelect, ACCENT_OPTIONS, activeAccentId, progress);
+  renderCustomizationOptions(tintSelect, TINT_OPTIONS, activeTintId, progress);
   renderCustomizationOptions(spoilerSelect, SPOILER_OPTIONS, customization.spoilerId, progress);
-  renderCustomizationOptions(glowSelect, GLOW_OPTIONS, customization.glowId, progress);
+  renderCustomizationOptions(glowSelect, GLOW_OPTIONS, activeGlowId, progress);
   if (!customStats) return;
   const loadout = getCurrentCustomization();
   const stats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
@@ -2942,8 +3378,13 @@ function attemptDevJump() {
 function updatePlayer(dt) {
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const deviceAssist = getDeviceAssistTuning();
+  const worldRule = getCombinedWorldRule();
   state.ballLungeCooldown = Math.max(0, state.ballLungeCooldown - dt);
   state.botLungeCooldown = Math.max(0, state.botLungeCooldown - dt);
+  if (updateDemolishedCar(player, dt)) {
+    player.update(dt);
+    return;
+  }
   player.maxStunTimer = Math.max(0, (player.maxStunTimer ?? 0) - dt);
   player.maxBoostTimer = Math.max(0, (player.maxBoostTimer ?? 0) - dt);
   player.maxBotLungeTimer = Math.max(0, (player.maxBotLungeTimer ?? 0) - dt);
@@ -2963,7 +3404,7 @@ function updatePlayer(dt) {
     input.touchSteer += (input.touchSteerTarget - input.touchSteer) * Math.min(1, dt * 60 * deviceAssist.touchResponse);
   }
   const inputSteer = getSteer() * (settings.invertSteer ? -1 : 1);
-  const steerFilter = input.drift ? 5.2 : 8.2;
+  const steerFilter = input.drift ? DRIVING_TUNING.grounded.driftSteerFilter : DRIVING_TUNING.grounded.steerFilter;
   state.steerSmoothed += (inputSteer - state.steerSmoothed) * dt * steerFilter;
   const steer = state.steerSmoothed;
   const airborne = isCarAirborne(player);
@@ -2995,20 +3436,25 @@ function updatePlayer(dt) {
   const speedAbs = Math.abs(player.speed);
   const speedRatio = THREE.MathUtils.clamp(speedAbs / player.maxSpeed, 0, 1);
   const maxModeActive = isMaxMode();
-  const modeSpeedMult = maxModeActive ? MAX_MODE_SPEED_MULT : 1;
-  const modeTurnMult = maxModeActive ? MAX_MODE_TURN_MULT * 1.1 : 1;
-  const maxModeCap = maxModeActive ? 0.98 : 1;
-  const accel = player.accel * modeSpeedMult * (boostActive ? 1.45 : 1) * padMult;
+  const modeSpeedMult = maxModeActive ? DRIVING_TUNING.maxMode.speedMult : 1;
+  const modeTurnMult = maxModeActive ? DRIVING_TUNING.maxMode.turnMult : 1;
+  const maxModeCap = maxModeActive ? DRIVING_TUNING.maxMode.capMult : 1;
+  const accel = player.accel * modeSpeedMult * worldRule.boostMult * (boostActive ? 1.45 : 1) * padMult;
   if (!airborne) {
     if (throttle) player.speed += accel * dt;
-    if (brake) player.speed -= accel * dt * (0.9 + speedRatio * 0.25);
+    if (brake) player.speed -= accel * dt * DRIVING_TUNING.grounded.brakeMult * (0.9 + speedRatio * 0.25);
 
     if (!throttle && !brake) {
-      const coastDrag = maxModeActive ? 4.5 + speedRatio * 2.8 : 7.3 + speedRatio * 4.6;
+      const coastDrag =
+        (
+          maxModeActive
+            ? DRIVING_TUNING.maxMode.coastDragBase + speedRatio * DRIVING_TUNING.maxMode.coastDragSpeedMult
+            : DRIVING_TUNING.grounded.coastDragBase + speedRatio * DRIVING_TUNING.grounded.coastDragSpeedMult
+        ) * worldRule.coastDragMult;
       player.speed -= Math.sign(player.speed) * coastDrag * dt;
     }
   } else {
-    const airControlAccel = accel * (boostActive ? AIRBORNE_BOOST_ACCEL_MULT : 1);
+    const airControlAccel = accel * DRIVING_TUNING.airborne.accelMult * (boostActive ? DRIVING_TUNING.airborne.boostAccelMult : 1);
     if (state.devJumpActive) {
       player.speed = Math.max(player.speed, state.devJumpCarrySpeed);
       if (boostActive) {
@@ -3017,6 +3463,8 @@ function updatePlayer(dt) {
         player.speed += airControlAccel * dt;
       } else if (brake) {
         player.speed -= airControlAccel * dt * (0.9 + speedRatio * 0.25);
+      } else {
+        player.speed -= Math.sign(player.speed) * DRIVING_TUNING.airborne.carryCoastMult * dt;
       }
     } else {
       if (throttle) player.speed += airControlAccel * dt;
@@ -3032,24 +3480,35 @@ function updatePlayer(dt) {
       boostSpeedMult: loadoutStats.boostSpeedMult
     });
   } else {
-    const boostCap = boostActive ? loadoutStats.boostSpeedMult : 1;
+    const boostCap = boostActive ? loadoutStats.boostSpeedMult * worldRule.boostMult : 1;
     player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult * maxModeCap);
   }
 
-  const turnAssist = (maxModeActive ? 0.95 : 0.78) + (1 - speedRatio) * (maxModeActive ? 0.54 : 0.42);
-  const turnPower = player.turnRate * modeTurnMult * turnAssist * (drift ? 1.18 : 1) * (airborne ? 0.58 : 1);
+  const turnAssist =
+    (maxModeActive ? DRIVING_TUNING.maxMode.turnAssistBase : DRIVING_TUNING.grounded.turnAssistBase) +
+    (1 - speedRatio) * (maxModeActive ? DRIVING_TUNING.maxMode.turnAssistLowSpeedBonus : DRIVING_TUNING.grounded.turnAssistLowSpeedBonus);
+  const turnPower =
+    player.turnRate *
+    modeTurnMult *
+    turnAssist *
+    (drift ? (maxModeActive ? DRIVING_TUNING.maxMode.driftTurnMult : DRIVING_TUNING.grounded.driftTurnMult) : 1) *
+    (airborne ? DRIVING_TUNING.airborne.steerMult : 1);
   const direction = player.speed >= 0 ? 1 : -1;
   const steerMultiplier = airborne ? loadoutStats.airTurnRate * 0.72 : 1;
   player.heading += steer * turnPower * dt * direction * steerMultiplier;
 
-  const grip = airborne ? 1.22 : drift ? player.driftGrip : maxModeActive ? player.normalGrip * 1.12 : player.normalGrip;
-  const slipAmount = airborne ? 0.055 : drift ? loadoutStats.driftSlip : maxModeActive ? loadoutStats.roadSlip * 0.8 : loadoutStats.roadSlip;
+  const grip = airborne ? 1.22 : drift ? player.driftGrip * worldRule.gripMult : maxModeActive ? player.normalGrip * 1.12 * worldRule.gripMult : player.normalGrip * worldRule.gripMult;
+  const slipAmount =
+    airborne ? 0.055 :
+    drift ? loadoutStats.driftSlip * worldRule.driftSlipMult :
+    maxModeActive ? loadoutStats.roadSlip * DRIVING_TUNING.maxMode.roadSlipMult * worldRule.driftSlipMult :
+    loadoutStats.roadSlip * worldRule.driftSlipMult;
   player.moveHeading = THREE.MathUtils.lerp(player.moveHeading, player.heading, grip * dt);
 
   const forward = new THREE.Vector3(Math.sin(player.moveHeading), 0, Math.cos(player.moveHeading));
   player.velocity.copy(forward).multiplyScalar(player.speed);
   const lateral = new THREE.Vector3(Math.cos(player.moveHeading), 0, -Math.sin(player.moveHeading));
-  player.velocity.addScaledVector(lateral, steer * speedAbs * slipAmount * 0.08 * (deviceAssist.usesTouch ? 0.94 : 1));
+  player.velocity.addScaledVector(lateral, steer * speedAbs * slipAmount * 0.08 * (deviceAssist.usesTouch ? DRIVING_TUNING.grounded.touchSlipMult : 1));
 
   if (settings.devMode && devTuning.infiniteBoost) {
     state.boost = 1;
@@ -3081,6 +3540,7 @@ function updateVerticalPhysics(car, dt) {
   const maxModeActive = isMaxMode();
   const loadoutStats = !car.isBot ? state.playerLoadoutStats ?? computePlayerLoadoutStats() : null;
   const deviceAssist = !car.isBot ? getDeviceAssistTuning() : null;
+  const worldRule = getCombinedWorldRule();
   const substeps = THREE.MathUtils.clamp(Math.ceil(speedAbs / 17), PHYSICS_SUBSTEPS_BASE, PHYSICS_SUBSTEPS_MAX);
   const stepDt = dt / substeps;
 
@@ -3137,8 +3597,8 @@ function updateVerticalPhysics(car, dt) {
     for (let i = 0; i < ramps.length; i += 1) {
       const ramp = ramps[i];
       const radius = ramp.userData.radius;
-      const jumpLift = ramp.userData.jumpLift ?? 4;
-      const speedKick = ramp.userData.speedKick ?? 11;
+      const jumpLift = (ramp.userData.jumpLift ?? 4) * worldRule.rampKickMult;
+      const speedKick = (ramp.userData.speedKick ?? 11) * worldRule.rampKickMult;
       const launchMult = ramp.userData.kind === "titan" ? ramp.userData.launchMult ?? 1 : 1;
       const prevDistance = Math.hypot(car.prevPosition.x - ramp.position.x, car.prevPosition.z - ramp.position.z);
       const currentDistance = Math.hypot(nowX - ramp.position.x, nowZ - ramp.position.z);
@@ -3233,52 +3693,180 @@ function isValidBotHit(playerCar, botCar, segmentDistance) {
   return { valid: horizontalTouch && verticalTouch, horizontalTouch, verticalTouch };
 }
 
-function scoreMaxGoal(team) {
-  if (team === "blue") maxMode.blueScore += 1;
-  else maxMode.redScore += 1;
-  maxMode.lastScoredTeam = team;
-  maxMode.goalFlashTimer = 1.6;
-  state.effectToast = team === "blue" ? "Blue Scores" : "Red Scores";
-  state.effectToastTimer = 1.8;
-  for (let i = 0; i < 34; i += 1) {
-    spawnFx(
-      new THREE.Vector3(0, 1.4 + Math.random() * 2.4, team === "blue" ? MAX_GOAL_LINE_Z - 8 : -MAX_GOAL_LINE_Z + 8),
-      new THREE.Vector3((Math.random() - 0.5) * 8, 2.8 + Math.random() * 2.8, team === "blue" ? -3 - Math.random() * 3 : 3 + Math.random() * 3),
-      team === "blue" ? 0x7feaff : 0xff8f76,
-      0.9,
-      0.48
-    );
+function getCarReplayId(car) {
+  if (car === player) return "player";
+  return `bot-${car.botId}`;
+}
+
+function serializeCarSnapshot(car) {
+  return {
+    id: getCarReplayId(car),
+    x: Number(car.position.x.toFixed(2)),
+    y: Number(car.position.y.toFixed(2)),
+    z: Number(car.position.z.toFixed(2)),
+    heading: Number(car.heading.toFixed(3)),
+    speed: Number(car.speed.toFixed(2)),
+    demolished: Boolean(car.demolished)
+  };
+}
+
+function captureMaxReplayFrame() {
+  if (!isMaxMode() || !maxMode.ball) return;
+  maxMode.replayBuffer.push({
+    ball: {
+      x: Number(maxMode.ball.position.x.toFixed(2)),
+      y: Number(maxMode.ball.position.y.toFixed(2)),
+      z: Number(maxMode.ball.position.z.toFixed(2))
+    },
+    ballVelocity: {
+      x: Number(maxMode.ballVelocity.x.toFixed(2)),
+      y: Number(maxMode.ballVelocity.y.toFixed(2)),
+      z: Number(maxMode.ballVelocity.z.toFixed(2))
+    },
+    player: serializeCarSnapshot(player),
+    bots: bots.map(serializeCarSnapshot),
+    score: { blue: maxMode.blueScore, red: maxMode.redScore }
+  });
+  if (maxMode.replayBuffer.length > MAX_REPLAY_RULES.maxFrames) {
+    maxMode.replayBuffer.shift();
   }
-  state.boost = 1;
-  player.speed = 0;
-  player.velocity.set(0, 0, 0);
-  if (maxMode.blueScore >= MAX_MODE_GOAL_TARGET || maxMode.redScore >= MAX_MODE_GOAL_TARGET) {
-    const winner = maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins";
+}
+
+function applyReplayFrame(frame) {
+  if (!frame || !maxMode.ball) return;
+  player.setDemolished(frame.player.demolished);
+  player.setPosition(frame.player.x, frame.player.y, frame.player.z);
+  player.heading = frame.player.heading;
+  player.moveHeading = frame.player.heading;
+  player.speed = frame.player.speed;
+  bots.forEach((bot) => {
+    const snapshot = frame.bots.find((entry) => entry.id === getCarReplayId(bot));
+    if (!snapshot) return;
+    bot.setDemolished(snapshot.demolished);
+    bot.setPosition(snapshot.x, snapshot.y, snapshot.z);
+    bot.heading = snapshot.heading;
+    bot.moveHeading = snapshot.heading;
+    bot.speed = snapshot.speed;
+  });
+  maxMode.ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
+}
+
+function startGoalReplay(frames, meta) {
+  if (!devTuning.allowReplay || !frames?.length) return false;
+  maxMode.replayActive = true;
+  maxMode.replayFrames = frames.map((frame) => structuredClone(frame));
+  maxMode.replayFrameIndex = 0;
+  maxMode.replayFrameTimer = 0;
+  maxMode.replayMeta = meta;
+  addMatchEvent("replay", { meta });
+  return true;
+}
+
+function finishGoalReplay() {
+  maxMode.replayActive = false;
+  maxMode.replayFrames = [];
+  maxMode.replayFrameIndex = 0;
+  maxMode.replayFrameTimer = 0;
+  maxMode.replayMeta = "";
+  if (!maxMode.pendingKickoff) return;
+  const { winner } = maxMode.pendingKickoff;
+  resetMaxKickoffPositions();
+  if (winner) {
     showMessage(winner, "Press Enter to run another match.", "Replay", "restart-current");
-    return;
   }
-  const blueSpawns = [
-    [0, -260],
-    [0, -326],
-    [-78, -210],
-    [78, -182]
-  ];
-  const redSpawns = [
-    [0, 326],
-    [-88, 214],
-    [0, 154],
-    [88, 214]
-  ];
+  maxMode.pendingKickoff = null;
+}
+
+function updateGoalReplay(dt) {
+  if (!maxMode.replayActive || maxMode.replayFrames.length === 0) return false;
+  maxMode.replayFrameTimer += dt;
+  const frameDuration = 1 / MAX_REPLAY_RULES.playbackFps;
+  while (maxMode.replayFrameTimer >= frameDuration) {
+    maxMode.replayFrameTimer -= frameDuration;
+    maxMode.replayFrameIndex += 1;
+    if (maxMode.replayFrameIndex >= maxMode.replayFrames.length) {
+      finishGoalReplay();
+      return true;
+    }
+  }
+  applyReplayFrame(maxMode.replayFrames[Math.min(maxMode.replayFrameIndex, maxMode.replayFrames.length - 1)]);
+  return true;
+}
+
+function markShotForTouch(car) {
+  if (!car?.team || !maxMode.stats) return;
+  car.matchStats.shots += 1;
+  maxMode.stats.teams[car.team].shots += 1;
+  car.lastShotAt = state.elapsed;
+  addMatchEvent("shot", { team: car.team, by: getCarLabel(car) });
+}
+
+function markSaveForTouch(car) {
+  if (!car?.team || !maxMode.stats) return;
+  car.matchStats.saves += 1;
+  maxMode.stats.teams[car.team].saves += 1;
+  addMatchEvent("save", { team: car.team, by: getCarLabel(car) });
+}
+
+function recordMaxBallTouch(car, preVelocity, postVelocity) {
+  if (!car?.team || car.demolished) return;
+  const now = state.elapsed;
+  car.lastTouchAt = now;
+  car.lastTouchType = "touch";
+  const attackDirection = car.team === "blue" ? 1 : -1;
+  if (preVelocity.z * attackDirection > 10 && postVelocity.z * attackDirection > preVelocity.z * attackDirection + 1) {
+    markShotForTouch(car);
+  }
+  const defendingGoalSide = car.team === "blue" ? -1 : 1;
+  const nearOwnGoal =
+    defendingGoalSide * maxMode.ball.position.z > MAX_GOAL_LINE_Z - 88 &&
+    Math.abs(maxMode.ball.position.x) < MAX_GOAL_WIDTH + 18;
+  const wasThreatening = preVelocity.z * defendingGoalSide > 9;
+  const cleared = postVelocity.z * defendingGoalSide < 1;
+  if (nearOwnGoal && wasThreatening && cleared) {
+    markSaveForTouch(car);
+  }
+  maxMode.touchChain.push({
+    team: car.team,
+    label: getCarLabel(car),
+    botId: car.botId ?? null,
+    at: now
+  });
+  maxMode.touchChain = maxMode.touchChain.filter((touch) => now - touch.at <= 6);
+}
+
+function getGoalAttribution(team) {
+  const chain = [...maxMode.touchChain].filter((touch) => state.elapsed - touch.at <= 6);
+  const scorer = [...chain].reverse().find((touch) => touch.team === team) ?? null;
+  const assist =
+    scorer
+      ? [...chain]
+          .reverse()
+          .find((touch) => touch.team === team && touch.label !== scorer.label && scorer.at - touch.at <= 5)
+      : null;
+  return { scorer, assist };
+}
+
+function resetMaxKickoffPositions() {
+  const blueSpawns = getTeamSpawnSlots("blue");
+  const redSpawns = getTeamSpawnSlots("red");
+  player.setDemolished(false);
   player.setPosition(blueSpawns[0][0], getMaxSurfaceHeight(...blueSpawns[0]), blueSpawns[0][1]);
   player.heading = 0;
   player.moveHeading = 0;
   player.speed = 0;
   player.verticalVel = 0;
+  player.maxHealth = MAX_HEALTH_MAX;
+  player.maxStunTimer = 0;
+  player.maxBoostTimer = 0;
+  player.maxBotLungeTimer = 0;
+  player.respawnTimer = 0;
   bots.forEach((bot, index) => {
     const list = bot.team === "blue" ? blueSpawns : redSpawns;
     const teamIndex = bots.filter((candidate, candidateIndex) => candidate.team === bot.team && candidateIndex <= index).length - 1;
     const slot = Math.min(teamIndex, list.length - 1);
     const [x, z] = list[slot] ?? list[list.length - 1];
+    bot.setDemolished(false);
     bot.setPosition(x, getMaxSurfaceHeight(x, z), z);
     bot.speed = 0;
     bot.velocity.set(0, 0, 0);
@@ -3292,12 +3880,69 @@ function scoreMaxGoal(team) {
   });
   if (maxMode.ball) {
     maxMode.ball.position.set(0, MAX_BALL_RADIUS, 0);
-    maxMode.ballVelocity.set(0, 0, 0);
+    maxMode.ballVelocity.set(MAX_BALL_TUNING.kickoffSpeed, 0, 0);
   }
-  player.maxHealth = MAX_HEALTH_MAX;
-  player.maxStunTimer = 0;
-  player.maxBoostTimer = 0;
-  player.maxBotLungeTimer = 0;
+  state.boost = 1;
+  player.velocity.set(0, 0, 0);
+  maxMode.touchChain = [];
+}
+
+function scoreMaxGoal(team) {
+  const { scorer, assist } = getGoalAttribution(team);
+  if (team === "blue") maxMode.blueScore += 1;
+  else maxMode.redScore += 1;
+  maxMode.lastScoredTeam = team;
+  maxMode.goalFlashTimer = 1.6;
+  state.effectToast = team === "blue" ? "Blue Scores" : "Red Scores";
+  state.effectToastTimer = 1.8;
+  if (!maxMode.stats) maxMode.stats = createEmptyMatchStats();
+  maxMode.stats.teams[team].goals += 1;
+  if (scorer) {
+    const scorerCar = [player, ...bots].find((car) => getCarLabel(car) === scorer.label);
+    if (scorerCar) scorerCar.matchStats.goals += 1;
+  }
+  if (assist) {
+    const assistCar = [player, ...bots].find((car) => getCarLabel(car) === assist.label);
+    if (assistCar) assistCar.matchStats.assists += 1;
+  }
+  const replayFrames = maxMode.replayBuffer.slice(-Math.min(maxMode.replayBuffer.length, MAX_REPLAY_RULES.maxFrames));
+  const meta = `${team === "blue" ? "Blue" : "Red"} goal${scorer ? ` by ${scorer.label}` : ""}${assist ? `, assist ${assist.label}` : ""}`;
+  maxMode.stats.lastGoal = { team, scorer, assist, replayFrames, meta };
+  addMatchEvent("goal", { team, scorer: scorer?.label ?? null, assist: assist?.label ?? null });
+  for (let i = 0; i < 34; i += 1) {
+    spawnFx(
+      new THREE.Vector3(0, 1.4 + Math.random() * 2.4, team === "blue" ? MAX_GOAL_LINE_Z - 8 : -MAX_GOAL_LINE_Z + 8),
+      new THREE.Vector3((Math.random() - 0.5) * 8, 2.8 + Math.random() * 2.8, team === "blue" ? -3 - Math.random() * 3 : 3 + Math.random() * 3),
+      team === "blue" ? 0x7feaff : 0xff8f76,
+      0.9,
+      0.48
+    );
+  }
+  const winner =
+    maxMode.blueScore >= MAX_MODE_GOAL_TARGET || maxMode.redScore >= MAX_MODE_GOAL_TARGET
+      ? maxMode.blueScore > maxMode.redScore
+        ? "Blue Team Wins"
+        : "Red Team Wins"
+      : null;
+  maxMode.pendingKickoff = { winner };
+  if (!startGoalReplay(replayFrames, meta)) {
+    finishGoalReplay();
+  }
+}
+
+function didBallEnterGoalFromFront(team) {
+  if (!maxMode.ball) return false;
+  const frontPlane = team === "blue" ? MAX_GOAL_LINE_Z + MAX_GOAL_RULES.frontPlaneOffset : -MAX_GOAL_LINE_Z - MAX_GOAL_RULES.frontPlaneOffset;
+  const backPlane = team === "blue"
+    ? MAX_GOAL_LINE_Z + MAX_GOAL_DEPTH + MAX_GOAL_RULES.backPlanePadding
+    : -MAX_GOAL_LINE_Z - MAX_GOAL_DEPTH - MAX_GOAL_RULES.backPlanePadding;
+  const prevZ = maxMode.ballPrevPosition.z;
+  const currentZ = maxMode.ball.position.z;
+  const crossedFront = team === "blue" ? prevZ <= frontPlane && currentZ > frontPlane : prevZ >= frontPlane && currentZ < frontPlane;
+  const insideDepth = team === "blue" ? currentZ < backPlane : currentZ > backPlane;
+  const insideGoalX = Math.abs(maxMode.ball.position.x) <= MAX_GOAL_WIDTH - MAX_GOAL_RULES.mouthWidthPadding;
+  const insideGoalY = maxMode.ball.position.y <= MAX_GOAL_HEIGHT - MAX_GOAL_RULES.mouthHeightPadding;
+  return crossedFront && insideDepth && insideGoalX && insideGoalY;
 }
 
 function updateMaxBall(dt) {
@@ -3306,25 +3951,24 @@ function updateMaxBall(dt) {
   maxMode.goalFlashTimer = Math.max(0, maxMode.goalFlashTimer - dt);
   maxMode.ballVelocity.y += GRAVITY * 0.68 * dt;
   maxMode.ball.position.addScaledVector(maxMode.ballVelocity, dt);
-  maxMode.ballVelocity.multiplyScalar(MAX_BALL_DRAG);
   const floorHeight = getMaxSurfaceHeight(maxMode.ball.position.x, maxMode.ball.position.z) + MAX_BALL_RADIUS;
+  const grounded = maxMode.ball.position.y <= floorHeight + 0.05;
+  maxMode.ballVelocity.multiplyScalar(grounded ? MAX_BALL_TUNING.dragGrounded : MAX_BALL_TUNING.dragAirborne);
   if (maxMode.ball.position.y < floorHeight) {
     maxMode.ball.position.y = floorHeight;
-    if (Math.abs(maxMode.ballVelocity.y) > 1.7) {
-      maxMode.ballVelocity.y = Math.abs(maxMode.ballVelocity.y) * MAX_BALL_BOUNCE;
+    if (Math.abs(maxMode.ballVelocity.y) > 1.4) {
+      maxMode.ballVelocity.y = Math.abs(maxMode.ballVelocity.y) * MAX_BALL_TUNING.bounceY;
     } else {
       maxMode.ballVelocity.y = 0;
     }
-    maxMode.ballVelocity.x *= 0.992;
-    maxMode.ballVelocity.z *= 0.992;
+    maxMode.ballVelocity.x *= MAX_BALL_TUNING.groundRetention;
+    maxMode.ballVelocity.z *= MAX_BALL_TUNING.groundRetention;
   }
-  const insideGoalX = Math.abs(maxMode.ball.position.x) <= MAX_GOAL_WIDTH - 2;
-  const insideGoalY = maxMode.ball.position.y <= MAX_GOAL_HEIGHT - 1;
-  if (insideGoalX && insideGoalY && maxMode.ball.position.z > MAX_GOAL_LINE_Z + 2 && maxMode.ball.position.z < MAX_GOAL_LINE_Z + MAX_GOAL_DEPTH + 4) {
+  if (didBallEnterGoalFromFront("blue")) {
     scoreMaxGoal("blue");
     return;
   }
-  if (insideGoalX && insideGoalY && maxMode.ball.position.z < -MAX_GOAL_LINE_Z - 2 && maxMode.ball.position.z > -MAX_GOAL_LINE_Z - MAX_GOAL_DEPTH - 4) {
+  if (didBallEnterGoalFromFront("red")) {
     scoreMaxGoal("red");
     return;
   }
@@ -3333,13 +3977,13 @@ function updateMaxBall(dt) {
   if (Math.abs(maxMode.ball.position.x) > limitX) {
     const side = Math.sign(maxMode.ball.position.x) || 1;
     maxMode.ball.position.x = side * limitX;
-    maxMode.ballVelocity.x *= -0.84;
+    maxMode.ballVelocity.x *= -MAX_BALL_TUNING.wallBounce;
   }
   const inGoalLane = Math.abs(maxMode.ball.position.x) <= MAX_GOAL_WIDTH;
   if (!inGoalLane && Math.abs(maxMode.ball.position.z) > limitZ) {
     const side = Math.sign(maxMode.ball.position.z) || 1;
     maxMode.ball.position.z = side * limitZ;
-    maxMode.ballVelocity.z *= -0.84;
+    maxMode.ballVelocity.z *= -MAX_BALL_TUNING.wallBounce;
   }
 }
 
@@ -3368,8 +4012,68 @@ function applyMaxDamage(target, amount, sourceTeam = "neutral") {
   }
 }
 
+function shouldTriggerDemolition(a, b, nx, nz) {
+  if (!devTuning.allowDemolitions) return false;
+  if (!a.team || !b.team || a.team === b.team) return false;
+  const relativeSpeed = Math.abs(a.speed - b.speed) + a.velocity.distanceTo(b.velocity);
+  const approachA = a.velocity.lengthSq() > 0.1 ? a.velocity.clone().normalize().dot(new THREE.Vector3(nx, 0, nz)) : 0;
+  const approachB = b.velocity.lengthSq() > 0.1 ? b.velocity.clone().normalize().dot(new THREE.Vector3(-nx, 0, -nz)) : 0;
+  return (
+    relativeSpeed >= MAX_DEMOLITION_RULES.relativeSpeedThreshold &&
+    (approachA > MAX_DEMOLITION_RULES.approachDotThreshold || approachB > MAX_DEMOLITION_RULES.approachDotThreshold)
+  );
+}
+
+function getRespawnSlotForCar(car) {
+  const team = car.team ?? "blue";
+  const slots = getTeamSpawnSlots(team);
+  if (car === player) return slots[0];
+  const teamBots = bots.filter((candidate) => candidate.team === team);
+  const slot = Math.min(teamBots.indexOf(car) + 1, slots.length - 1);
+  return slots[slot] ?? slots[0];
+}
+
+function demolishCar(target, attacker, cause = "impact") {
+  if (!target || target.demolished) return false;
+  target.setDemolished(true);
+  target.respawnTimer = MAX_DEMOLITION_RULES.respawnDelay;
+  target.respawnPoint = getRespawnSlotForCar(target);
+  const team = attacker?.team ?? "blue";
+  if (attacker?.matchStats) attacker.matchStats.demolitions += 1;
+  if (maxMode.stats?.teams[team]) maxMode.stats.teams[team].demolitions += 1;
+  addMatchEvent("demo", { by: attacker ? getCarLabel(attacker) : "Arena", target: getCarLabel(target), cause });
+  if (target === player) setEffectToast("Demolished");
+  else setEffectToast("Demolition");
+  for (let i = 0; i < MAX_DEMOLITION_RULES.explosionBurstCount; i += 1) {
+    spawnFx(
+      target.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.3, 0.4 + Math.random() * 0.8, (Math.random() - 0.5) * 1.3)),
+      new THREE.Vector3((Math.random() - 0.5) * 6.2, 2 + Math.random() * 2.4, (Math.random() - 0.5) * 6.2),
+      Math.random() < 0.5 ? 0xffb877 : 0xff684d,
+      0.9,
+      0.42
+    );
+  }
+  return true;
+}
+
+function updateDemolishedCar(car, dt) {
+  if (!car.demolished) return false;
+  car.respawnTimer = Math.max(0, car.respawnTimer - dt);
+  if (car.respawnTimer > 0) return true;
+  const [x, z] = car.respawnPoint ?? getRespawnSlotForCar(car);
+  car.setDemolished(false);
+  car.setPosition(x, getMaxSurfaceHeight(x, z), z);
+  car.heading = car.team === "red" ? Math.PI : 0;
+  car.moveHeading = car.heading;
+  car.maxHealth = MAX_HEALTH_MAX;
+  car.maxBoostTimer = 0;
+  car.maxBotLungeTimer = 0;
+  car.maxStunTimer = 0;
+  return true;
+}
+
 function resolveMaxBumps() {
-  const cars = [player, ...bots];
+  const cars = [player, ...bots].filter((car) => !car.demolished);
   for (let i = 0; i < cars.length; i += 1) {
     for (let j = i + 1; j < cars.length; j += 1) {
       const a = cars[i];
@@ -3397,10 +4101,16 @@ function resolveMaxBumps() {
       const aLunge = a === player ? state.botLungeCooldown > MAX_BOT_LUNGE_COOLDOWN - 0.22 : (a.maxBotLungeTimer ?? 0) > 0.05;
       const bLunge = b === player ? state.botLungeCooldown > MAX_BOT_LUNGE_COOLDOWN - 0.22 : (b.maxBotLungeTimer ?? 0) > 0.05;
       if (opposingTeams) {
-        if (aBoost || aLunge) applyMaxDamage(b, aLunge ? 42 : 28, a.team ?? "blue");
-        else applyMaxDamage(b, 10, a.team ?? "blue");
-        if (bBoost || bLunge) applyMaxDamage(a, bLunge ? 42 : 28, b.team ?? "red");
-        else applyMaxDamage(a, 10, b.team ?? "red");
+        const demoTriggered = shouldTriggerDemolition(a, b, nx, nz);
+        if (demoTriggered) {
+          if (Math.abs(a.speed) >= Math.abs(b.speed)) demolishCar(b, a);
+          else demolishCar(a, b);
+        } else {
+          if (aBoost || aLunge) applyMaxDamage(b, aLunge ? 42 : 28, a.team ?? "blue");
+          else applyMaxDamage(b, 10, a.team ?? "blue");
+          if (bBoost || bLunge) applyMaxDamage(a, bLunge ? 42 : 28, b.team ?? "red");
+          else applyMaxDamage(a, 10, b.team ?? "red");
+        }
       }
       spawnFx(a.position.clone().add(new THREE.Vector3(0, 0.45, 0)), new THREE.Vector3(-nx * 2, 1.4, -nz * 2), 0xffc476, 0.42, 0.22);
       spawnFx(b.position.clone().add(new THREE.Vector3(0, 0.45, 0)), new THREE.Vector3(nx * 2, 1.4, nz * 2), 0x9fe7ff, 0.42, 0.22);
@@ -3420,14 +4130,17 @@ function resolveMaxBumps() {
     const nx = dx / dist;
     const ny = dy / dist;
     const nz = dz / dist;
-    const boostHit = car === player ? (input.boost ? 10 : 0) : (car.maxBoostTimer ?? 0) > 0.08 ? 10 : 0;
-    const hitForce = Math.max(15, Math.abs(car.speed) * 0.82 + boostHit);
+    const boostVariant = getActiveMaxBoostVariant();
+    const boostHit = car === player ? (input.boost ? MAX_BALL_TUNING.boostImpulseBonus : 0) : (car.maxBoostTimer ?? 0) > 0.08 ? MAX_BALL_TUNING.boostImpulseBonus : 0;
+    const hitForce = Math.max(MAX_BALL_TUNING.minHitForce, (MAX_BALL_TUNING.carImpulseBase + Math.abs(car.speed) * MAX_BALL_TUNING.carImpulseSpeedMult + boostHit) * boostVariant.ballImpulseMult);
+    const preVelocity = maxMode.ballVelocity.clone();
     maxMode.ballVelocity.x += nx * hitForce + car.velocity.x * 0.36;
-    maxMode.ballVelocity.y += Math.max(0.8, ny * 4.2 + 0.9);
+    maxMode.ballVelocity.y += Math.max(MAX_BALL_TUNING.verticalImpulseBase, ny * MAX_BALL_TUNING.verticalImpulseSpeedMult + 0.9);
     maxMode.ballVelocity.z += nz * hitForce + car.velocity.z * 0.36;
     maxMode.ball.position.x = car.position.x + nx * minDist;
     maxMode.ball.position.y = car.position.y + ny * minDist;
     maxMode.ball.position.z = car.position.z + nz * minDist;
+    recordMaxBallTouch(car, preVelocity, maxMode.ballVelocity.clone());
     spawnFx(maxMode.ball.position.clone(), new THREE.Vector3(nx * 2.4, 1.8, nz * 2.4), car.team === "red" ? 0xff8a7a : 0x7feaff, 0.5, 0.26);
   });
 }
@@ -3435,6 +4148,10 @@ function resolveMaxBumps() {
 function updateMaxBots(dt) {
   const ballPos = maxMode.ball?.position ?? new THREE.Vector3();
   bots.forEach((bot) => {
+    if (updateDemolishedCar(bot, dt)) {
+      bot.update(dt);
+      return;
+    }
     bot.maxStunTimer = Math.max(0, (bot.maxStunTimer ?? 0) - dt);
     bot.maxBoostTimer = Math.max(0, (bot.maxBoostTimer ?? 0) - dt);
     bot.maxBotLungeTimer = Math.max(0, (bot.maxBotLungeTimer ?? 0) - dt);
@@ -3696,19 +4413,24 @@ function updatePowerupCollisions() {
 function updateBoostPads(dt = 0.016) {
   const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
   const deviceAssist = getDeviceAssistTuning();
+  const worldRule = getCombinedWorldRule();
+  const maxBoostVariant = getActiveMaxBoostVariant();
   boostPads.forEach((pad) => {
     pad.userData.cooldown = Math.max(0, (pad.userData.cooldown ?? 0) - dt);
     const distance = Math.hypot(player.position.x - pad.position.x, player.position.z - pad.position.z);
     const groundedThreshold = isMaxMode() ? getMaxSurfaceHeight(player.position.x, player.position.z) + 0.8 : 0.2;
     if (pad.userData.cooldown === 0 && distance < pad.userData.radius * deviceAssist.boostPadRadiusMult && player.position.y <= groundedThreshold) {
-      const maxModeBoost = isMaxMode() ? 1.12 : 1;
-      player.speed = Math.min(player.maxSpeed * loadoutStats.boostSpeedMult * loadoutStats.padSpeedMult * maxModeBoost, player.speed + (isMaxMode() ? 22 : 30));
-      state.boost = Math.min(1, state.boost + (isMaxMode() ? 0.32 : 0.24));
-      state.padSpeedTimer = isMaxMode() ? Math.max(state.padSpeedTimer, 1.6) : loadoutStats.padDuration;
-      state.padSpeedMult = isMaxMode() ? Math.max(state.padSpeedMult, 1.18) : loadoutStats.padSpeedMult;
+      const maxModeBoost = isMaxMode() ? maxBoostVariant.padSpeedMult : 1;
+      player.speed = Math.min(
+        player.maxSpeed * loadoutStats.boostSpeedMult * loadoutStats.padSpeedMult * maxModeBoost * worldRule.boostMult,
+        player.speed + (isMaxMode() ? 18 + maxBoostVariant.pickupBoost * 12 : 30 * worldRule.padEnergyMult)
+      );
+      state.boost = Math.min(1, state.boost + (isMaxMode() ? maxBoostVariant.pickupBoost : 0.24 * worldRule.padEnergyMult));
+      state.padSpeedTimer = isMaxMode() ? Math.max(state.padSpeedTimer, maxBoostVariant.padDuration) : loadoutStats.padDuration;
+      state.padSpeedMult = isMaxMode() ? Math.max(state.padSpeedMult, maxBoostVariant.padSpeedMult) : loadoutStats.padSpeedMult * worldRule.padEnergyMult;
       pad.userData.cooldown = isMaxMode() ? 0.9 : 0.4;
       state.score += 40;
-      setEffectToast(isMaxMode() ? "Max Boost Pad" : "Pad Surge");
+      setEffectToast(isMaxMode() ? maxBoostVariant.name : "Pad Surge");
       if (Math.random() < 0.55) {
         spawnFx(
           player.position.clone().add(new THREE.Vector3(0, 0.35, 0)),
@@ -3758,6 +4480,7 @@ function updateCombo(dt, steer) {
 }
 
 function updateDifficulty(dt) {
+  state.elapsed += dt;
   if (isMaxMode()) {
     if (state.effectToastTimer > 0) {
       state.effectToastTimer = Math.max(0, state.effectToastTimer - dt);
@@ -3767,7 +4490,6 @@ function updateDifficulty(dt) {
   }
   const profile = getDifficultyProfile();
   const heatRamp = settings.difficulty === "no_bots" ? 0.75 : profile.heatRamp;
-  state.elapsed += dt;
   if (state.elapsed > 10) {
     state.heat = Math.min(1.35, state.heat + dt * 0.015 * heatRamp);
   }
@@ -3776,6 +4498,94 @@ function updateDifficulty(dt) {
     state.effectToastTimer = Math.max(0, state.effectToastTimer - dt);
     if (state.effectToastTimer === 0) state.effectToast = "";
   }
+}
+
+function stepGame(dt) {
+  const pausedByMenu = isMenuOpen();
+  const targetMinimapHeading = MINIMAP_USE_MOVE_HEADING ? player.moveHeading : player.heading;
+  state.minimapHeading += angleDifference(state.minimapHeading, targetMinimapHeading) * Math.min(1, dt * MINIMAP_HEADING_SMOOTH);
+
+  if (maxMode.replayActive && !pausedByMenu) {
+    updateGoalReplay(dt);
+    updateFx(dt);
+    updateCamera(dt);
+    updateHud();
+    renderer.render(scene, camera);
+    return;
+  }
+
+  if (state.running && !pausedByMenu) {
+    if (state.postHitSafeFrames > 0) state.postHitSafeFrames -= 1;
+    state.timeLeft = Math.max(0, state.timeLeft - dt);
+    updateDifficulty(dt);
+
+    updatePlayer(dt);
+    updateBots(dt);
+    if (isMaxMode()) {
+      updateMaxBall(dt);
+      resolveMaxBumps();
+      updateBoostPads(dt);
+      maxMode.replaySampleTimer += dt;
+      if (maxMode.replaySampleTimer >= MAX_REPLAY_RULES.sampleRate) {
+        maxMode.replaySampleTimer = 0;
+        captureMaxReplayFrame();
+      }
+      if (state.timeLeft <= 0 && !state.overtime) {
+        if (maxMode.blueScore === maxMode.redScore) {
+          state.overtime = true;
+          state.timeLeft = 0;
+          setEffectToast("Overtime");
+        } else {
+          showMessage(maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins", "Press Enter to replay the arena.", "Replay", "restart-current");
+        }
+      } else if (state.overtime && maxMode.blueScore !== maxMode.redScore) {
+        showMessage(maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins", "Golden goal locked it in. Press Enter to replay.", "Replay", "restart-current");
+      }
+    } else {
+      updateObstacles(player);
+      bots.forEach((bot) => updateObstacles(bot));
+      updatePowerups(dt);
+      updatePowerupCollisions();
+      updateBoostPads(dt);
+    }
+    updateFx(dt);
+
+    if (!isMaxMode() && settings.difficulty === "no_bots" && hasMovementInput() && Math.abs(player.speed) < 0.2) {
+      state.noBotsRecoveryTimer += dt;
+      if (state.noBotsRecoveryTimer > 0.55) {
+        const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
+        state.steerSmoothed = 0;
+        player.velocity.set(0, 0, 0);
+        player.maxSpeed = loadoutStats.topSpeed;
+        player.accel = loadoutStats.accel;
+        state.noBotsRecoveryTimer = 0;
+        debugLog("menu", "no_bots_recovery_applied");
+      }
+    } else {
+      state.noBotsRecoveryTimer = 0;
+    }
+
+    if (!isMaxMode() && state.timeLeft <= 0) {
+      completeLevel();
+    }
+    if (DEBUG_FLAGS.enabled && DEBUG_FLAGS.minimap) {
+      state.minimapDebugTimer += dt;
+      if (state.minimapDebugTimer > 0.5) {
+        state.minimapDebugTimer = 0;
+        debugLog("minimap", {
+          playerHeading: player.heading.toFixed(3),
+          playerMoveHeading: player.moveHeading.toFixed(3),
+          minimapHeading: state.minimapHeading.toFixed(3)
+        });
+      }
+    }
+  } else {
+    updateFx(dt);
+  }
+
+  updateCamera(dt);
+  updateHud();
+  renderer.render(scene, camera);
 }
 
 function drawMinimap() {
@@ -3964,6 +4774,33 @@ function updateBotHealthBars() {
   });
 }
 
+function updateMatchPanel() {
+  if (!matchPanel) return;
+  const visible = isMaxMode();
+  matchPanel.hidden = !visible;
+  if (!visible) return;
+  if (matchPanelScore) {
+    matchPanelScore.textContent = `Blue ${maxMode.blueScore} - ${maxMode.redScore} Red`;
+  }
+  const playerStats = player.matchStats ?? { goals: 0, assists: 0, saves: 0, shots: 0, demolitions: 0 };
+  if (matchPanelStats) {
+    matchPanelStats.innerHTML = `
+      <div class="match-stat"><span>Goals</span><strong>${playerStats.goals}</strong></div>
+      <div class="match-stat"><span>Assists</span><strong>${playerStats.assists}</strong></div>
+      <div class="match-stat"><span>Saves</span><strong>${playerStats.saves}</strong></div>
+      <div class="match-stat"><span>Shots / Demos</span><strong>${playerStats.shots} / ${playerStats.demolitions}</strong></div>
+    `;
+  }
+  if (matchPanelMeta) {
+    const latestEvent = maxMode.stats?.events?.[0];
+    matchPanelMeta.textContent = maxMode.replayActive
+      ? `Replay: ${maxMode.replayMeta}`
+      : latestEvent
+        ? `${latestEvent.type.toUpperCase()} ${latestEvent.by ?? latestEvent.team ?? ""}`.trim()
+        : "No arena events yet.";
+  }
+}
+
 function updateHud() {
   const level = getLevel();
   if (isMaxMode()) {
@@ -3982,11 +4819,11 @@ function updateHud() {
     }
     hudWorld.textContent = String(maxMode.blueScore);
     hudLevel.textContent = String(maxMode.redScore);
-    hudScore.textContent = state.overtime ? "OVERTIME" : "Arena";
+    hudScore.textContent = state.overtime ? "OVERTIME" : maxMode.replayActive ? "REPLAY" : "Arena";
     hudSpeed.textContent = `${Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT)} MPH`;
     hudHearts.innerHTML = "";
-    hudLives.textContent = "Blue";
-    hudCombo.textContent = state.effectToast || "3v3";
+    hudLives.textContent = player.demolished ? "Respawn" : "Blue";
+    hudCombo.textContent = maxMode.replayActive ? "Goal Replay" : state.effectToast || "3v3";
   } else {
     if (statusLabelNodes.length >= 2) {
       statusLabelNodes[0].textContent = "Boost";
@@ -4017,6 +4854,7 @@ function updateHud() {
   drawMinimap();
   updateDebugHud();
   updateBotHealthBars();
+  updateMatchPanel();
 }
 
 function renderLivesHud() {
@@ -4250,77 +5088,7 @@ let lastTime = performance.now();
 function animate(now) {
   const dt = Math.min(0.033, (now - lastTime) / 1000);
   lastTime = now;
-  const pausedByMenu = isMenuOpen();
-  const targetMinimapHeading = MINIMAP_USE_MOVE_HEADING ? player.moveHeading : player.heading;
-  state.minimapHeading += angleDifference(state.minimapHeading, targetMinimapHeading) * Math.min(1, dt * MINIMAP_HEADING_SMOOTH);
-
-  if (state.running && !pausedByMenu) {
-    if (state.postHitSafeFrames > 0) state.postHitSafeFrames -= 1;
-    state.timeLeft = Math.max(0, state.timeLeft - dt);
-    updateDifficulty(dt);
-
-    updatePlayer(dt);
-    updateBots(dt);
-    if (isMaxMode()) {
-      updateMaxBall(dt);
-      resolveMaxBumps();
-      updateBoostPads(dt);
-      if (state.timeLeft <= 0 && !state.overtime) {
-        if (maxMode.blueScore === maxMode.redScore) {
-          state.overtime = true;
-          state.timeLeft = 0;
-          setEffectToast("Overtime");
-        } else {
-          showMessage(maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins", "Press Enter to replay the arena.", "Replay", "restart-current");
-        }
-      } else if (state.overtime && maxMode.blueScore !== maxMode.redScore) {
-        showMessage(maxMode.blueScore > maxMode.redScore ? "Blue Team Wins" : "Red Team Wins", "Golden goal locked it in. Press Enter to replay.", "Replay", "restart-current");
-      }
-    } else {
-      updateObstacles(player);
-      bots.forEach((bot) => updateObstacles(bot));
-      updatePowerups(dt);
-      updatePowerupCollisions();
-      updateBoostPads(dt);
-    }
-    updateFx(dt);
-
-    if (!isMaxMode() && settings.difficulty === "no_bots" && hasMovementInput() && Math.abs(player.speed) < 0.2) {
-      state.noBotsRecoveryTimer += dt;
-      if (state.noBotsRecoveryTimer > 0.55) {
-        const loadoutStats = state.playerLoadoutStats ?? computePlayerLoadoutStats();
-        state.steerSmoothed = 0;
-        player.velocity.set(0, 0, 0);
-        player.maxSpeed = loadoutStats.topSpeed;
-        player.accel = loadoutStats.accel;
-        state.noBotsRecoveryTimer = 0;
-        debugLog("menu", "no_bots_recovery_applied");
-      }
-    } else {
-      state.noBotsRecoveryTimer = 0;
-    }
-
-    if (!isMaxMode() && state.timeLeft <= 0) {
-      completeLevel();
-    }
-    if (DEBUG_FLAGS.enabled && DEBUG_FLAGS.minimap) {
-      state.minimapDebugTimer += dt;
-      if (state.minimapDebugTimer > 0.5) {
-        state.minimapDebugTimer = 0;
-        debugLog("minimap", {
-          playerHeading: player.heading.toFixed(3),
-          playerMoveHeading: player.moveHeading.toFixed(3),
-          minimapHeading: state.minimapHeading.toFixed(3)
-        });
-      }
-    }
-  } else {
-    updateFx(dt);
-  }
-
-  updateCamera(dt);
-  updateHud();
-  renderer.render(scene, camera);
+  stepGame(dt);
   requestAnimationFrame(animate);
 }
 
@@ -4665,6 +5433,34 @@ if (devFreezeBots) {
   });
 }
 
+if (devMaxDemoToggle) {
+  devMaxDemoToggle.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("allowDemolitions", event.target.checked);
+  });
+}
+
+if (devMaxReplayToggle) {
+  devMaxReplayToggle.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("allowReplay", event.target.checked);
+  });
+}
+
+if (devMaxBoostVariant) {
+  devMaxBoostVariant.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("maxBoostVariant", event.target.value);
+  });
+}
+
+if (devWorldModifierSelect) {
+  devWorldModifierSelect.addEventListener("change", (event) => {
+    if (!settings.devMode) return;
+    setDevTuningValue("worldModifier", event.target.value);
+  });
+}
+
 if (devWorldSelect) {
   devWorldSelect.addEventListener("change", (event) => {
     if (!settings.devMode || isMaxMode()) return;
@@ -4761,7 +5557,22 @@ bindPressAction(devResetScore, () => {
   maxMode.blueScore = 0;
   maxMode.redScore = 0;
   state.overtime = false;
+  resetMaxMatchState();
   setEffectToast("Score Reset");
+});
+
+bindPressAction(devTriggerReplay, () => {
+  if (!settings.devMode || !isMaxMode() || !devTuning.allowReplay) return;
+  if (maxMode.stats?.lastGoal?.replayFrames?.length) {
+    startGoalReplay(maxMode.stats.lastGoal.replayFrames, maxMode.stats.lastGoal.meta);
+  }
+});
+
+bindPressAction(devForceDemo, () => {
+  if (!settings.devMode || !isMaxMode()) return;
+  const target = bots.find((bot) => bot.team === "red" && !bot.demolished);
+  if (!target) return;
+  demolishCar(target, player, "forced");
 });
 
 bindPressAction(devResetTuning, () => {
@@ -4782,11 +5593,17 @@ cameraToggle.addEventListener("change", (event) => {
 
 function handleCustomizationChange(group, key, fallbackId, event) {
   const selected = getOptionById(group, event.target.value, fallbackId);
-  if (!isOptionUnlocked(selected)) {
+  const cosmeticKeys = new Set(["paintId", "accentId", "tintId", "glowId"]);
+  const usingMaxTeamSkin = isMaxMode() && player.team && cosmeticKeys.has(key);
+  if (!usingMaxTeamSkin && !isOptionUnlocked(selected)) {
     refreshCustomizationMenu();
     return;
   }
-  customization[key] = selected.id;
+  if (usingMaxTeamSkin) {
+    maxTeamCustomization[player.team][key] = selected.id;
+  } else {
+    customization[key] = selected.id;
+  }
   applyPlayerCustomization();
   savePersistentState();
 }
@@ -4853,6 +5670,93 @@ if (deviceModeSelect) {
     savePersistentState();
   });
 }
+
+window.render_game_to_text = () => {
+  const currentCustomization = getCurrentCustomization();
+  const payload = {
+    mode: isMaxMode() ? "infernodriftmax1" : "infernodrift33",
+    note: "origin center, +x right, +z north/forward, +y up",
+    running: state.running,
+    replay: maxMode.replayActive,
+    player: {
+      x: Number(player.position.x.toFixed(2)),
+      y: Number(player.position.y.toFixed(2)),
+      z: Number(player.position.z.toFixed(2)),
+      speed_mph: Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT),
+      boost: Number(state.boost.toFixed(2)),
+      demolished: Boolean(player.demolished),
+      skin: {
+        paint: currentCustomization.paint.id,
+        accent: currentCustomization.accent.id,
+        tint: currentCustomization.tint.id,
+        glow: currentCustomization.glow.id
+      }
+    },
+    hud: {
+      time: Number(state.timeLeft.toFixed(2)),
+      effect: state.effectToast || "",
+      score: isMaxMode() ? { blue: maxMode.blueScore, red: maxMode.redScore } : Math.floor(state.score)
+    },
+    ball: maxMode.ball
+      ? {
+          x: Number(maxMode.ball.position.x.toFixed(2)),
+          y: Number(maxMode.ball.position.y.toFixed(2)),
+          z: Number(maxMode.ball.position.z.toFixed(2)),
+          vx: Number(maxMode.ballVelocity.x.toFixed(2)),
+          vy: Number(maxMode.ballVelocity.y.toFixed(2)),
+          vz: Number(maxMode.ballVelocity.z.toFixed(2))
+        }
+      : null,
+    bots: bots.slice(0, 6).map((bot) => ({
+      team: bot.team ?? "hunter",
+      role: bot.role ?? "bot",
+      x: Number(bot.position.x.toFixed(2)),
+      y: Number(bot.position.y.toFixed(2)),
+      z: Number(bot.position.z.toFixed(2)),
+      demolished: Boolean(bot.demolished)
+    })),
+    stats: isMaxMode()
+      ? {
+          player: player.matchStats,
+          latest: maxMode.stats?.events?.[0] ?? null
+        }
+      : null
+  };
+  return JSON.stringify(payload);
+};
+
+window.advanceTime = (ms) => {
+  const steps = Math.max(1, Math.round(ms / (1000 / 60)));
+  state.steppingExternally = true;
+  for (let i = 0; i < steps; i += 1) {
+    stepGame(1 / 60);
+  }
+  state.steppingExternally = false;
+};
+
+window.__infernodriftTestApi = {
+  forceMaxGoal: (team = "blue") => {
+    if (!isMaxMode()) return false;
+    scoreMaxGoal(team);
+    return true;
+  },
+  setMaxBallState: ({ x = 0, y = MAX_BALL_RADIUS, z = 0, vx = 0, vy = 0, vz = 0 } = {}) => {
+    if (!maxMode.ball) return false;
+    maxMode.ball.position.set(x, y, z);
+    maxMode.ballVelocity.set(vx, vy, vz);
+    return true;
+  },
+  getReplayState: () => ({
+    active: maxMode.replayActive,
+    meta: maxMode.replayMeta,
+    frames: maxMode.replayFrames.length
+  }),
+  getMatchStats: () => ({
+    player: player.matchStats,
+    teams: maxMode.stats?.teams ?? null,
+    events: maxMode.stats?.events ?? []
+  })
+};
 
 loadPersistentState();
 createFxPool();
