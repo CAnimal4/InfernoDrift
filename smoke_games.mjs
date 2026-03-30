@@ -50,6 +50,15 @@ const replayState = await page.evaluate(() => window.__infernodriftTestApi.getRe
 const matchStats = await page.evaluate(() => window.__infernodriftTestApi.getMatchStats());
 const replayMeta = await page.locator("#match-panel-meta").textContent();
 
+await page.keyboard.press("Escape");
+await page.locator("#games-tab-btn").click({ force: true });
+await page.locator("#game-card-risk").click({ force: true });
+const riskHint = await page.locator("#game-mode-hint").textContent();
+await page.keyboard.press("Escape");
+await page.waitForTimeout(1100);
+await page.evaluate(() => window.advanceTime(1600));
+const riskText = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
+
 await page.locator("#menu-btn").click({ force: true });
 await page.waitForTimeout(250);
 await page.locator('[data-tab="settings"]').click({ force: true });
@@ -76,6 +85,6 @@ const idHud = {
 
 await page.screenshot({ path: "output/playwright/games-smoke.png", fullPage: true });
 console.log(
-  JSON.stringify({ gamesVisible, gameHint, maxHud, initialText, replayState, replayMeta, matchStats, postDemoText, idHud }, null, 2)
+  JSON.stringify({ gamesVisible, gameHint, maxHud, initialText, replayState, replayMeta, matchStats, riskHint, riskText, postDemoText, idHud }, null, 2)
 );
 await browser.close();

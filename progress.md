@@ -111,3 +111,35 @@ Original prompt: Please make it so that boost does something and works in air an
   - `node smoke_games.mjs` (escalated, passed; confirms Max blue skin ids are `frost` / `ice` / `midnight` / `cyan`)
 - Deploy note:
   - repo is served from GitHub Pages at `https://canimal4.github.io/InfernoDrift/`, so pushing `main` is the deployment path
+
+- Max feel cleanup pass:
+  - shrank the Max arena footprint and moved kickoff/team spawn points inward so play stays tighter and easier to read
+  - slowed Max driving, raised turn assist, reduced lateral slip, and softened bot pace so player control feels calmer and more deliberate
+  - toned wall climbing down into a much shallower edge ride with minimal lift/rotation so it stops fighting steering
+  - reduced ball impulse, bounce, and retention so hits are slower and more grounded
+  - simplified goal replay to a shorter ball/player-focused replay and hid bots during playback to reduce visual shake
+- Validation:
+  - `node --check script.js`
+  - `git diff --check`
+  - `node "$WEB_GAME_CLIENT" ... --screenshot-dir output/web-game` (escalated, passed after linking local Playwright into the skill script path)
+  - screenshot review: `output/web-game/shot-0.png`
+  - `node smoke_games.mjs` (escalated, passed for Max-specific state validation)
+- Notes:
+  - the generic web-game client naturally starts InfernoDrift 3.3 from the main menu, so Max-specific verification still relies on `smoke_games.mjs`
+
+- TRY AT YOUR OWN RISK mode pass:
+  - added a new Dev-only arena card for `TRY AT YOUR OWN RISK`
+  - routed the mode through the existing Max arena systems while keeping it blocked outside Dev Mode
+  - added adaptive risk memory so bots respond to goals, player touches, and failed close-pressure sequences instead of just using flat stat boosts
+  - upgraded risk bots into more coordinated roles including sweeper and playmaker behavior with tighter rotation, faster reactions, and team spacing
+  - exposed the risk mode id and adaptive memory in `render_game_to_text` for deterministic verification
+
+- InfernoDrift 3.3 adaptive AI pass:
+  - brought the same "learn from mistakes" concept into the campaign hunter loop using shared memory for recent player escapes, hits, and near-misses
+  - hunters now tighten prediction, collapse flanks, increase cutoff pressure, and burst harder when the player keeps slipping the pack
+  - exposed campaign adaptive memory through `render_game_to_text` so 3.3 behavior can be checked in smoke output too
+
+- 3.3 visible risk-mode follow-up:
+  - added a visible `3.3 Hunter AI` selector in normal settings with `Normal` and `Risk`
+  - defaulted the campaign selector to `Risk` so the mode is visible immediately in 3.3
+  - gated the adaptive hunter logic behind that selector and exposed the selected mode in `render_game_to_text`

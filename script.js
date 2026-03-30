@@ -46,6 +46,7 @@ const gamesTabBtn = document.getElementById("games-tab-btn");
 const gameModeHint = document.getElementById("game-mode-hint");
 const gameCards = document.querySelectorAll("[data-game-mode]");
 const difficultySelect = document.getElementById("difficulty-select");
+const campaignAiSelect = document.getElementById("campaign-ai-select");
 const invertToggle = document.getElementById("invert-toggle");
 const cameraToggle = document.getElementById("camera-toggle");
 const rampDensitySelect = document.getElementById("ramp-density-select");
@@ -167,10 +168,11 @@ const BACKFLIP_RECOVERY_DURATION = 0.3;
 const SAVE_STORAGE_KEY = "infernoDrift3.save.v1";
 const GAME_MODE_ID33 = "infernodrift33";
 const GAME_MODE_MAX1 = "infernodriftmax1";
+const GAME_MODE_RISK = "tryatyourownrisk";
 const MAX_MODE_MATCH_TIME = 180;
 const MAX_MODE_GOAL_TARGET = 5;
-const MAX_ARENA_HALF_WIDTH = 290;
-const MAX_ARENA_HALF_LENGTH = 410;
+const MAX_ARENA_HALF_WIDTH = 252;
+const MAX_ARENA_HALF_LENGTH = 356;
 const MAX_ARENA_WALL_HEIGHT = 20;
 const MAX_GOAL_WIDTH = 52;
 const MAX_GOAL_HEIGHT = 19;
@@ -225,6 +227,17 @@ const DEFAULT_DEV_TUNING = {
   maxBoostVariant: "super",
   worldModifier: "world"
 };
+const RISK_MODE_RULES = {
+  teamPressureBase: 1.18,
+  reactionLead: 0.66,
+  recoveryLead: 0.34,
+  passingBias: 0.3,
+  rotationMemoryWeight: 0.28,
+  emergencyDropDepth: 52,
+  lungeRateMult: 1.45,
+  boostTriggerRange: 40,
+  supportSpacing: 58
+};
 const DRIVING_TUNING = {
   grounded: {
     steerFilter: 8.4,
@@ -244,15 +257,15 @@ const DRIVING_TUNING = {
     carryCoastMult: 0.18
   },
   maxMode: {
-    speedMult: 0.96,
-    turnMult: 1.06,
+    speedMult: 0.82,
+    turnMult: 0.96,
     capMult: 1,
-    turnAssistBase: 1.06,
-    turnAssistLowSpeedBonus: 0.58,
-    coastDragBase: 3.8,
-    coastDragSpeedMult: 2.25,
-    roadSlipMult: 0.72,
-    driftTurnMult: 1.14
+    turnAssistBase: 1.22,
+    turnAssistLowSpeedBonus: 0.76,
+    coastDragBase: 4.9,
+    coastDragSpeedMult: 2.9,
+    roadSlipMult: 0.52,
+    driftTurnMult: 1.06
   }
 };
 const WORLD_RULES = [
@@ -321,17 +334,17 @@ const MAX_BOOST_VARIANTS = [
 ];
 const MAX_BALL_TUNING = {
   kickoffSpeed: 0,
-  dragGrounded: 0.9984,
-  dragAirborne: 0.9991,
-  groundRetention: 0.996,
-  bounceY: 0.74,
-  wallBounce: 0.88,
-  carImpulseBase: 12.5,
-  carImpulseSpeedMult: 0.72,
-  boostImpulseBonus: 12,
-  verticalImpulseBase: 0.76,
-  verticalImpulseSpeedMult: 3.6,
-  minHitForce: 12
+  dragGrounded: 0.9946,
+  dragAirborne: 0.9964,
+  groundRetention: 0.984,
+  bounceY: 0.61,
+  wallBounce: 0.8,
+  carImpulseBase: 8.6,
+  carImpulseSpeedMult: 0.46,
+  boostImpulseBonus: 7,
+  verticalImpulseBase: 0.36,
+  verticalImpulseSpeedMult: 2.15,
+  minHitForce: 8.5
 };
 const MAX_GOAL_RULES = {
   frontPlaneOffset: 2,
@@ -347,16 +360,16 @@ const MAX_DEMOLITION_RULES = {
   explosionBurstCount: 32
 };
 const MAX_REPLAY_RULES = {
-  sampleRate: 1 / 14,
-  maxFrames: 84,
-  playbackFps: 14,
-  playbackDuration: 3.4
+  sampleRate: 1 / 20,
+  maxFrames: 36,
+  playbackFps: 18,
+  playbackDuration: 1.7
 };
 const MAX_WALL_RIDE_RULES = {
-  startBand: 34,
-  maxHeight: 18,
-  pitchMax: Math.PI * 0.38,
-  stickSpeed: 22
+  startBand: 16,
+  maxHeight: 2.6,
+  pitchMax: Math.PI * 0.07,
+  stickSpeed: 34
 };
 const MINIMAP_FORWARD_BIAS = 0.2;
 const MINIMAP_HEADING_SMOOTH = 10;
@@ -782,6 +795,7 @@ const input = {
 
 const settings = {
   difficulty: "classic",
+  campaignAiMode: "risk",
   invertSteer: true,
   cameraFocus: false,
   rampDensity: "normal",
@@ -850,7 +864,12 @@ const state = {
   overtime: false,
   playerLoadoutStats: null,
   deviceProfile: { mode: "auto", ...DEVICE_PROFILES.desktop },
-  steppingExternally: false
+  steppingExternally: false,
+  campaignRisk: {
+    recentHits: 0,
+    recentEscapes: 0,
+    nearMisses: 0
+  }
 };
 
 const maxMode = {
@@ -872,7 +891,13 @@ const maxMode = {
   replayFrameIndex: 0,
   replayFrameTimer: 0,
   replayMeta: "",
-  pendingKickoff: null
+  pendingKickoff: null,
+  riskMemory: {
+    blueConceded: 0,
+    redConceded: 0,
+    playerTouches: 0,
+    recentMisses: 0
+  }
 };
 
 function setDebugFlagsEnabled(enabled) {
@@ -901,10 +926,21 @@ function getCollisionRadius(car) {
 }
 
 function isMaxMode() {
-  return settings.activeGameMode === GAME_MODE_MAX1;
+  return settings.activeGameMode === GAME_MODE_MAX1 || settings.activeGameMode === GAME_MODE_RISK;
+}
+
+function isRiskMode() {
+  return settings.activeGameMode === GAME_MODE_RISK;
 }
 
 function getActiveGameMeta() {
+  if (isRiskMode()) {
+    return {
+      id: GAME_MODE_RISK,
+      title: "TRY AT YOUR OWN RISK",
+      subtitle: "Adaptive Team Arena"
+    };
+  }
   return isMaxMode()
     ? {
         id: GAME_MODE_MAX1,
@@ -1237,22 +1273,38 @@ function resetMaxMatchState() {
   maxMode.replayFrameTimer = 0;
   maxMode.replayMeta = "";
   maxMode.pendingKickoff = null;
+  maxMode.riskMemory = {
+    blueConceded: 0,
+    redConceded: 0,
+    playerTouches: 0,
+    recentMisses: 0
+  };
   [player, ...bots].forEach(resetCarMatchStats);
+}
+
+function resetCampaignRiskMemory() {
+  state.campaignRisk = {
+    recentHits: 0,
+    recentEscapes: 0,
+    nearMisses: 0
+  };
 }
 
 function getTeamSpawnSlots(team) {
   return team === "blue"
     ? [
-        [0, -260],
-        [0, -326],
-        [-78, -210],
-        [78, -182]
+        [0, -208],
+        [0, -274],
+        [-68, -168],
+        [68, -146],
+        [0, -118]
       ]
     : [
-        [0, 326],
-        [-88, 214],
-        [0, 154],
-        [88, 214]
+        [0, 274],
+        [-76, 176],
+        [0, 128],
+        [76, 176],
+        [0, 188]
       ];
 }
 
@@ -1278,6 +1330,7 @@ function savePersistentState() {
     levelIndex: state.levelIndex,
     settings: {
       difficulty: settings.difficulty,
+      campaignAiMode: settings.campaignAiMode,
       invertSteer: settings.invertSteer,
       cameraFocus: settings.cameraFocus,
       rampDensity: settings.rampDensity,
@@ -1327,6 +1380,7 @@ function loadPersistentState() {
     if (!data || typeof data !== "object") return;
     if (data.settings && typeof data.settings === "object") {
       if (typeof data.settings.difficulty === "string") settings.difficulty = data.settings.difficulty;
+      if (typeof data.settings.campaignAiMode === "string") settings.campaignAiMode = data.settings.campaignAiMode;
       if (typeof data.settings.invertSteer === "boolean") settings.invertSteer = data.settings.invertSteer;
       if (typeof data.settings.cameraFocus === "boolean") settings.cameraFocus = data.settings.cameraFocus;
       if (typeof data.settings.rampDensity === "string") settings.rampDensity = data.settings.rampDensity;
@@ -1372,7 +1426,7 @@ function loadPersistentState() {
     state.worldIndex = safeWorld;
     state.levelIndex = clampLevelIndex(safeWorld, levelIndex);
     clampCustomizationToUnlocks({ worldIndex: safeWorld, levelIndex: state.levelIndex });
-    if (!settings.devMode && settings.activeGameMode === GAME_MODE_MAX1) {
+    if (!settings.devMode && (settings.activeGameMode === GAME_MODE_MAX1 || settings.activeGameMode === GAME_MODE_RISK)) {
       settings.activeGameMode = GAME_MODE_ID33;
     }
   } catch (error) {
@@ -1382,6 +1436,9 @@ function loadPersistentState() {
 
 function refreshDevModeUi() {
   const maxModeActive = isMaxMode();
+  if (campaignAiSelect) {
+    campaignAiSelect.value = settings.campaignAiMode;
+  }
   if (devModeToggle) devModeToggle.checked = settings.devMode;
   document.body.classList.toggle("dev-mode-enabled", settings.devMode);
   touchControlsRoot?.classList.toggle("dev-mode", settings.devMode);
@@ -1633,12 +1690,22 @@ function refreshGamesUi() {
     gameModeHint.textContent = `Current game: ${activeMeta.title} - ${activeMeta.subtitle}`;
   }
   if (startBtn) {
-    startBtn.textContent = isMaxMode() ? "Start InfernoDriftMax 1" : "Start InfernoDrift 3.3";
+    startBtn.textContent = isRiskMode()
+      ? "Start TRY AT YOUR OWN RISK"
+      : isMaxMode()
+        ? "Start InfernoDriftMax 1"
+        : settings.campaignAiMode === "risk"
+          ? "Start InfernoDrift 3.3 Risk"
+          : "Start InfernoDrift 3.3";
   }
   if (overlaySubtitle) {
-    overlaySubtitle.textContent = isMaxMode()
-      ? "Arcade soccar chaos. Lunge to the ball, target enemy bots, manage health, and outscore the red team."
-      : "Free-roam survival racers. Drift through neon arenas, grab powerups, launch off ramps, and stay ahead of relentless hunter bots.";
+    overlaySubtitle.textContent = isRiskMode()
+      ? "Dev-only adaptive arena. Bots rotate as a squad, trap passing lanes, and tighten up after every mistake."
+      : isMaxMode()
+        ? "Arcade soccar chaos. Lunge to the ball, target enemy bots, manage health, and outscore the red team."
+        : settings.campaignAiMode === "risk"
+          ? "Free-roam survival racers. Risk hunters learn from escapes, collapse lanes faster, and coordinate pressure as a pack."
+          : "Free-roam survival racers. Drift through neon arenas, grab powerups, launch off ramps, and stay ahead of relentless hunter bots.";
   }
   const maxModeActive = isMaxMode();
   difficultySelect?.closest(".field")?.toggleAttribute("hidden", maxModeActive);
@@ -1646,7 +1713,7 @@ function refreshGamesUi() {
   if (modeSettingsHint) {
     modeSettingsHint.textContent = maxModeActive
       ? "Max settings: device, steering feel, and camera still apply here. Max ignores hunter difficulty and campaign ramp density."
-      : "Campaign settings: hunter difficulty, ramp density, and free-play options.";
+      : `Campaign settings: hunter difficulty, ramp density, free-play options, and 3.3 Hunter AI (${settings.campaignAiMode === "risk" ? "Risk" : "Normal"}).`;
   }
   if (devClearLevel) {
     devClearLevel.textContent = maxModeActive ? "Golden Goal" : "Clear Level";
@@ -1670,7 +1737,10 @@ function setActiveTab(tabName = "settings") {
 }
 
 function setActiveGameMode(mode, { save = true, reset = false } = {}) {
-  const nextMode = mode === GAME_MODE_MAX1 && settings.devMode ? GAME_MODE_MAX1 : GAME_MODE_ID33;
+  const nextMode =
+    settings.devMode && (mode === GAME_MODE_MAX1 || mode === GAME_MODE_RISK)
+      ? mode
+      : GAME_MODE_ID33;
   if (settings.activeGameMode === nextMode && !reset) {
     refreshGamesUi();
     return;
@@ -2647,7 +2717,7 @@ function getMaxSurfaceState(x, z) {
   const dominant = sideDist < endDist ? "side" : "end";
   const inwardDistance = dominant === "side" ? sideDist : endDist;
   const rampT = THREE.MathUtils.clamp((MAX_WALL_RIDE_RULES.startBand - inwardDistance) / MAX_WALL_RIDE_RULES.startBand, 0, 1);
-  const eased = rampT <= 0 ? 0 : 1 - Math.pow(1 - rampT, 1.8);
+  const eased = rampT <= 0 ? 0 : rampT * rampT;
   const height = eased * MAX_WALL_RIDE_RULES.maxHeight;
   const wallSign = dominant === "side" ? Math.sign(x || 1) : Math.sign(z || 1);
   return {
@@ -2705,13 +2775,14 @@ function makeMaxGoal(team, zSign) {
 
 function buildMaxArena() {
   clearWorld();
-  scene.fog.color.setHex(0x0e2743);
-  scene.background = new THREE.Color(0x16395d);
-  groundMaterial.color.setHex(0x0f2236);
+  const isRisk = isRiskMode();
+  scene.fog.color.setHex(isRisk ? 0x241020 : 0x0e2743);
+  scene.background = new THREE.Color(isRisk ? 0x311028 : 0x16395d);
+  groundMaterial.color.setHex(isRisk ? 0x22111a : 0x0f2236);
 
   const field = new THREE.Mesh(
     new THREE.PlaneGeometry(MAX_ARENA_HALF_WIDTH * 2, MAX_ARENA_HALF_LENGTH * 2),
-    new THREE.MeshStandardMaterial({ color: 0x25557f, roughness: 0.8, metalness: 0.06 })
+    new THREE.MeshStandardMaterial({ color: isRisk ? 0x6f2a4f : 0x25557f, roughness: 0.8, metalness: 0.06 })
   );
   field.rotation.x = -Math.PI / 2;
   field.position.y = 0.01;
@@ -2719,7 +2790,7 @@ function buildMaxArena() {
 
   const midfieldLine = new THREE.Mesh(
     new THREE.PlaneGeometry(MAX_ARENA_HALF_WIDTH * 1.95, 3.2),
-    new THREE.MeshStandardMaterial({ color: 0xe8f7ff, emissive: 0xb9efff, emissiveIntensity: 0.22, transparent: true, opacity: 0.78 })
+    new THREE.MeshStandardMaterial({ color: 0xe8f7ff, emissive: isRisk ? 0xff9db6 : 0xb9efff, emissiveIntensity: 0.22, transparent: true, opacity: 0.78 })
   );
   midfieldLine.rotation.x = -Math.PI / 2;
   midfieldLine.position.y = 0.04;
@@ -2727,7 +2798,7 @@ function buildMaxArena() {
 
   const centerCircle = new THREE.Mesh(
     new THREE.RingGeometry(20, 28, 48),
-    new THREE.MeshStandardMaterial({ color: 0xe8f7ff, emissive: 0xb9efff, emissiveIntensity: 0.28, transparent: true, opacity: 0.84, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ color: 0xe8f7ff, emissive: isRisk ? 0xff9db6 : 0xb9efff, emissiveIntensity: 0.28, transparent: true, opacity: 0.84, side: THREE.DoubleSide })
   );
   centerCircle.rotation.x = -Math.PI / 2;
   centerCircle.position.y = 0.05;
@@ -2735,7 +2806,7 @@ function buildMaxArena() {
 
   const leftLane = new THREE.Mesh(
     new THREE.PlaneGeometry(14, MAX_ARENA_HALF_LENGTH * 1.8),
-    new THREE.MeshStandardMaterial({ color: 0x56e9ff, emissive: 0x56e9ff, emissiveIntensity: 0.08, transparent: true, opacity: 0.22 })
+    new THREE.MeshStandardMaterial({ color: isRisk ? 0xff93af : 0x56e9ff, emissive: isRisk ? 0xff93af : 0x56e9ff, emissiveIntensity: 0.08, transparent: true, opacity: 0.22 })
   );
   const rightLane = leftLane.clone();
   leftLane.rotation.x = -Math.PI / 2;
@@ -2744,7 +2815,7 @@ function buildMaxArena() {
   rightLane.position.set(MAX_ARENA_HALF_WIDTH - 34, 0.03, 0);
   arena.add(leftLane, rightLane);
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x21496f, roughness: 0.46, metalness: 0.14 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: isRisk ? 0x4c2740 : 0x21496f, roughness: 0.46, metalness: 0.14 });
   const sideWallL = new THREE.Mesh(new THREE.BoxGeometry(3.2, MAX_ARENA_WALL_HEIGHT, MAX_ARENA_HALF_LENGTH * 2 + 28), wallMat);
   const sideWallR = sideWallL.clone();
   const endWallN = new THREE.Mesh(new THREE.BoxGeometry(MAX_ARENA_HALF_WIDTH * 2 + 6.4, MAX_ARENA_WALL_HEIGHT, 3.2), wallMat);
@@ -2914,12 +2985,12 @@ function buildWorld() {
 function getWorld() {
   if (isMaxMode()) {
     return {
-      name: "InfernoDriftMax 1",
+      name: isRiskMode() ? "TRY AT YOUR OWN RISK" : "InfernoDriftMax 1",
       accents: [0x56e9ff, 0xff6c6c],
-      fog: 0x14304a,
-      sky: 0x22486c,
-      ground: 0x17314a,
-      levels: [{ name: "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: 44, spawnRate: 1 }]
+      fog: isRiskMode() ? 0x281427 : 0x14304a,
+      sky: isRiskMode() ? 0x43162e : 0x22486c,
+      ground: isRiskMode() ? 0x24121b : 0x17314a,
+      levels: [{ name: isRiskMode() ? "Adaptive Killbox" : "Blue vs Red Arena", time: MAX_MODE_MATCH_TIME, bots: 5, botSpeed: isRiskMode() ? 52 : 44, spawnRate: 1 }]
     };
   }
   return worldData[state.worldIndex];
@@ -2952,7 +3023,7 @@ function resetLevel() {
   state.overtime = false;
 
   const spawnX = isMaxMode() ? 0 : PLAYER_SPAWN_X;
-  const spawnZ = isMaxMode() ? -260 : PLAYER_SPAWN_Z;
+  const spawnZ = isMaxMode() ? -208 : PLAYER_SPAWN_Z;
   player.setDemolished(false);
   player.setPosition(spawnX, isMaxMode() ? getMaxSurfaceHeight(spawnX, spawnZ) : 0, spawnZ);
   player.velocity.set(0, 0, 0);
@@ -2978,6 +3049,7 @@ function resetLevel() {
   state.padSpeedTimer = 0;
   state.padSpeedMult = 1;
   state.noBotsRecoveryTimer = 0;
+  resetCampaignRiskMemory();
 
   applyPlayerCustomization();
   buildWorld();
@@ -3007,25 +3079,37 @@ function spawnMaxBots() {
   player.role = "striker";
   player.visualRoot.scale.setScalar(1.14);
   player.collisionRadius = 1.72;
-  const botSpecs = [
-    { team: "blue", role: "goalie", color: 0xa5f4ff, x: 0, z: -326, heading: 0 },
-    { team: "blue", role: "support", color: 0x5feaff, x: -78, z: -210, heading: 0.05 },
-    { team: "blue", role: "wing", color: 0x7fdbff, x: 78, z: -182, heading: -0.03 },
-    { team: "red", role: "goalie", color: 0xffb0b0, x: 0, z: 326, heading: Math.PI },
-    { team: "red", role: "defender", color: 0xff8a8a, x: -88, z: 214, heading: Math.PI - 0.05 },
-    { team: "red", role: "striker", color: 0xff6c6c, x: 0, z: 154, heading: Math.PI },
-    { team: "red", role: "wing", color: 0xff9778, x: 88, z: 214, heading: Math.PI + 0.05 }
-  ];
+  const botSpecs = isRiskMode()
+    ? [
+        { team: "blue", role: "goalie", color: 0xa5f4ff, x: 0, z: -274, heading: 0, skill: 1.06 },
+        { team: "blue", role: "support", color: 0x5feaff, x: -68, z: -168, heading: 0.05, skill: 1.08 },
+        { team: "blue", role: "wing", color: 0x7fdbff, x: 68, z: -146, heading: -0.03, skill: 1.08 },
+        { team: "blue", role: "sweeper", color: 0x8fcfff, x: 0, z: -106, heading: 0, skill: 1.12 },
+        { team: "red", role: "goalie", color: 0xffb0b0, x: 0, z: 274, heading: Math.PI, skill: 1.14 },
+        { team: "red", role: "defender", color: 0xff8a8a, x: -82, z: 182, heading: Math.PI - 0.05, skill: 1.18 },
+        { team: "red", role: "playmaker", color: 0xff7b90, x: 82, z: 182, heading: Math.PI + 0.05, skill: 1.2 },
+        { team: "red", role: "striker", color: 0xff6c6c, x: 0, z: 128, heading: Math.PI, skill: 1.24 }
+      ]
+    : [
+        { team: "blue", role: "goalie", color: 0xa5f4ff, x: 0, z: -274, heading: 0, skill: 1 },
+        { team: "blue", role: "support", color: 0x5feaff, x: -68, z: -168, heading: 0.05, skill: 1 },
+        { team: "blue", role: "wing", color: 0x7fdbff, x: 68, z: -146, heading: -0.03, skill: 1 },
+        { team: "red", role: "goalie", color: 0xffb0b0, x: 0, z: 274, heading: Math.PI, skill: 1 },
+        { team: "red", role: "defender", color: 0xff8a8a, x: -76, z: 176, heading: Math.PI - 0.05, skill: 1 },
+        { team: "red", role: "striker", color: 0xff6c6c, x: 0, z: 128, heading: Math.PI, skill: 1 },
+        { team: "red", role: "wing", color: 0xff9778, x: 76, z: 176, heading: Math.PI + 0.05, skill: 1 }
+      ];
   botSpecs.forEach((spec) => {
     const bot = makeBot(spec.color);
     bot.team = spec.team;
     bot.role = spec.role;
+    bot.riskSkill = spec.skill ?? 1;
     bot.setPosition(spec.x, getMaxSurfaceHeight(spec.x, spec.z), spec.z);
     bot.heading = spec.heading;
     bot.moveHeading = spec.heading;
-    bot.maxSpeed = spec.role === "goalie" ? 42 : 49;
-    bot.accel = spec.role === "goalie" ? 20 : 19.5;
-    bot.turnRate = spec.role === "goalie" ? 3.5 : 3.2;
+    bot.maxSpeed = (spec.role === "goalie" ? 34 : 39) * (spec.skill ?? 1);
+    bot.accel = (spec.role === "goalie" ? 15.5 : 15) * (0.98 + (spec.skill ?? 1) * 0.08);
+    bot.turnRate = (spec.role === "goalie" ? 3.85 : 3.5) * (0.96 + (spec.skill ?? 1) * 0.06);
     bot.visualRoot.scale.setScalar(1.12);
     bot.collisionRadius = 1.68;
     if (spec.role === "goalie") {
@@ -3040,6 +3124,18 @@ function spawnMaxBots() {
     bots.push(bot);
   });
   maxMode.teamCars = [player, ...bots];
+}
+
+function getRiskRoleWeight(bot) {
+  return {
+    goalie: 0.72,
+    defender: 0.92,
+    sweeper: 1,
+    support: 1.04,
+    wing: 1.08,
+    playmaker: 1.14,
+    striker: 1.18
+  }[bot.role] ?? 1;
 }
 
 function constrainMaxArenaCar(car, dt = 0.016) {
@@ -3059,10 +3155,12 @@ function constrainMaxArenaCar(car, dt = 0.016) {
   }
   const surface = getMaxSurfaceState(car.position.x, car.position.z);
   const surfaceHeight = getMaxSurfaceHeight(car.position.x, car.position.z);
-  car.position.y = Math.max(surfaceHeight, car.position.y);
-  car.onWall = surface.t > 0.08 && Math.abs(car.speed) > MAX_WALL_RIDE_RULES.stickSpeed * 0.6;
-  car.surfacePitch += (surface.pitch - car.surfacePitch) * Math.min(1, dt * 7);
-  car.surfaceRoll += (surface.roll - car.surfaceRoll) * Math.min(1, dt * 7);
+  car.position.y = Math.max(Math.min(surfaceHeight, 1.75), car.position.y);
+  car.onWall = surface.t > 0.12 && Math.abs(car.speed) > MAX_WALL_RIDE_RULES.stickSpeed;
+  const targetPitch = car.onWall ? surface.pitch : 0;
+  const targetRoll = car.onWall ? surface.roll : 0;
+  car.surfacePitch += (targetPitch - car.surfacePitch) * Math.min(1, dt * 8.5);
+  car.surfaceRoll += (targetRoll - car.surfaceRoll) * Math.min(1, dt * 8.5);
   car.group.position.copy(car.position);
 }
 
@@ -3114,6 +3212,60 @@ function getMaxBotTarget(bot) {
     THREE.MathUtils.clamp(behindBall.x, -MAX_ARENA_HALF_WIDTH + 28, MAX_ARENA_HALF_WIDTH - 28),
     0,
     THREE.MathUtils.clamp(behindBall.z, -MAX_ARENA_HALF_LENGTH + 28, MAX_ARENA_HALF_LENGTH - 28)
+  );
+}
+
+function getRiskBotTarget(bot) {
+  const ball = maxMode.ball?.position ?? new THREE.Vector3();
+  const ballVel = maxMode.ballVelocity ?? new THREE.Vector3();
+  const pressure = 1 + maxMode.riskMemory.playerTouches * 0.05 + maxMode.riskMemory.recentMisses * 0.06;
+  const teamConceded = bot.team === "blue" ? maxMode.riskMemory.blueConceded : maxMode.riskMemory.redConceded;
+  const opponentConceded = bot.team === "blue" ? maxMode.riskMemory.redConceded : maxMode.riskMemory.blueConceded;
+  const attackGoalZ = bot.team === "blue" ? MAX_GOAL_LINE_Z : -MAX_GOAL_LINE_Z;
+  const defendGoalZ = -attackGoalZ;
+  const attackDir = new THREE.Vector3(0, 0, attackGoalZ - ball.z).normalize();
+  const futureBall = new THREE.Vector3(
+    THREE.MathUtils.clamp(ball.x + ballVel.x * (RISK_MODE_RULES.reactionLead + opponentConceded * 0.04), -MAX_ARENA_HALF_WIDTH + 22, MAX_ARENA_HALF_WIDTH - 22),
+    0,
+    THREE.MathUtils.clamp(ball.z + ballVel.z * (RISK_MODE_RULES.reactionLead + teamConceded * 0.06), -MAX_ARENA_HALF_LENGTH + 22, MAX_ARENA_HALF_LENGTH - 22)
+  );
+  const supportLane = futureBall.clone().addScaledVector(attackDir, -12 - teamConceded * 4);
+  const emergency = bot.team === "blue" ? futureBall.z < -RISK_MODE_RULES.emergencyDropDepth : futureBall.z > RISK_MODE_RULES.emergencyDropDepth;
+  const sideBias = bot.position.x >= 0 ? 1 : -1;
+
+  if (bot.role === "goalie") {
+    return new THREE.Vector3(
+      THREE.MathUtils.clamp(futureBall.x * 0.68, -MAX_GOAL_WIDTH + 6, MAX_GOAL_WIDTH - 6),
+      0,
+      THREE.MathUtils.lerp(defendGoalZ + (bot.team === "blue" ? 18 : -18), futureBall.z, emergency ? 0.38 : 0.22)
+    );
+  }
+  if (bot.role === "defender" || bot.role === "sweeper") {
+    const dropZ = defendGoalZ + (bot.team === "blue" ? 38 : -38);
+    return new THREE.Vector3(
+      THREE.MathUtils.clamp(futureBall.x * 0.62, -MAX_ARENA_HALF_WIDTH + 28, MAX_ARENA_HALF_WIDTH - 28),
+      0,
+      emergency ? THREE.MathUtils.lerp(dropZ, futureBall.z, 0.62) : THREE.MathUtils.lerp(dropZ, supportLane.z, 0.28 + teamConceded * 0.06)
+    );
+  }
+  if (bot.role === "playmaker") {
+    return new THREE.Vector3(
+      THREE.MathUtils.clamp(futureBall.x + sideBias * RISK_MODE_RULES.supportSpacing, -MAX_ARENA_HALF_WIDTH + 24, MAX_ARENA_HALF_WIDTH - 24),
+      0,
+      THREE.MathUtils.clamp(THREE.MathUtils.lerp(supportLane.z, attackGoalZ * 0.2, 0.32 + pressure * 0.04), -MAX_ARENA_HALF_LENGTH + 24, MAX_ARENA_HALF_LENGTH - 24)
+    );
+  }
+  if (bot.role === "support" || bot.role === "wing") {
+    return new THREE.Vector3(
+      THREE.MathUtils.clamp(supportLane.x + sideBias * (bot.role === "wing" ? 34 : 18), -MAX_ARENA_HALF_WIDTH + 24, MAX_ARENA_HALF_WIDTH - 24),
+      0,
+      THREE.MathUtils.clamp(supportLane.z, -MAX_ARENA_HALF_LENGTH + 24, MAX_ARENA_HALF_LENGTH - 24)
+    );
+  }
+  return new THREE.Vector3(
+    THREE.MathUtils.clamp(futureBall.x + attackDir.x * 10, -MAX_ARENA_HALF_WIDTH + 18, MAX_ARENA_HALF_WIDTH - 18),
+    0,
+    THREE.MathUtils.clamp(futureBall.z + attackDir.z * (8 + pressure * 3), -MAX_ARENA_HALF_LENGTH + 18, MAX_ARENA_HALF_LENGTH - 18)
   );
 }
 
@@ -3268,6 +3420,8 @@ function consumePowerup(powerup) {
   if (type === "slow") {
     state.heat = Math.max(0, state.heat - 0.4);
     state.slowBotsTimer = Math.max(state.slowBotsTimer, 6);
+    state.campaignRisk.recentHits = Math.max(0, state.campaignRisk.recentHits - 0.8);
+    state.campaignRisk.nearMisses = Math.max(0, state.campaignRisk.nearMisses - 0.8);
     state.score += 120;
     setEffectToast("Bots Slowed");
     debugLog("powerups", "slow_applied");
@@ -3484,6 +3638,8 @@ function updatePlayer(dt) {
     player.speed = THREE.MathUtils.clamp(player.speed, -14, player.maxSpeed * boostCap * padMult * maxModeCap);
   }
 
+  const steerInputDamp = maxModeActive ? 0.88 : 1;
+  const maxSteer = steer * steerInputDamp;
   const turnAssist =
     (maxModeActive ? DRIVING_TUNING.maxMode.turnAssistBase : DRIVING_TUNING.grounded.turnAssistBase) +
     (1 - speedRatio) * (maxModeActive ? DRIVING_TUNING.maxMode.turnAssistLowSpeedBonus : DRIVING_TUNING.grounded.turnAssistLowSpeedBonus);
@@ -3495,7 +3651,7 @@ function updatePlayer(dt) {
     (airborne ? DRIVING_TUNING.airborne.steerMult : 1);
   const direction = player.speed >= 0 ? 1 : -1;
   const steerMultiplier = airborne ? loadoutStats.airTurnRate * 0.72 : 1;
-  player.heading += steer * turnPower * dt * direction * steerMultiplier;
+  player.heading += maxSteer * turnPower * dt * direction * steerMultiplier;
 
   const grip = airborne ? 1.22 : drift ? player.driftGrip * worldRule.gripMult : maxModeActive ? player.normalGrip * 1.12 * worldRule.gripMult : player.normalGrip * worldRule.gripMult;
   const slipAmount =
@@ -3508,7 +3664,7 @@ function updatePlayer(dt) {
   const forward = new THREE.Vector3(Math.sin(player.moveHeading), 0, Math.cos(player.moveHeading));
   player.velocity.copy(forward).multiplyScalar(player.speed);
   const lateral = new THREE.Vector3(Math.cos(player.moveHeading), 0, -Math.sin(player.moveHeading));
-  player.velocity.addScaledVector(lateral, steer * speedAbs * slipAmount * 0.08 * (deviceAssist.usesTouch ? DRIVING_TUNING.grounded.touchSlipMult : 1));
+  player.velocity.addScaledVector(lateral, maxSteer * speedAbs * slipAmount * 0.08 * (deviceAssist.usesTouch ? DRIVING_TUNING.grounded.touchSlipMult : 1));
 
   if (settings.devMode && devTuning.infiniteBoost) {
     state.boost = 1;
@@ -3527,8 +3683,8 @@ function updatePlayer(dt) {
   updateVerticalPhysics(player, dt);
   player.update(dt);
   if (isMaxMode()) constrainMaxArenaCar(player, dt);
-  updateCombo(dt, steer);
-  emitDrivingFx(dt, steer, drift, boostActive);
+  updateCombo(dt, maxSteer);
+  emitDrivingFx(dt, maxSteer, drift, boostActive);
 
   if (boostActive) {
     state.score += dt * 6 * state.combo;
@@ -3724,7 +3880,6 @@ function captureMaxReplayFrame() {
       z: Number(maxMode.ballVelocity.z.toFixed(2))
     },
     player: serializeCarSnapshot(player),
-    bots: bots.map(serializeCarSnapshot),
     score: { blue: maxMode.blueScore, red: maxMode.redScore }
   });
   if (maxMode.replayBuffer.length > MAX_REPLAY_RULES.maxFrames) {
@@ -3740,13 +3895,8 @@ function applyReplayFrame(frame) {
   player.moveHeading = frame.player.heading;
   player.speed = frame.player.speed;
   bots.forEach((bot) => {
-    const snapshot = frame.bots.find((entry) => entry.id === getCarReplayId(bot));
-    if (!snapshot) return;
-    bot.setDemolished(snapshot.demolished);
-    bot.setPosition(snapshot.x, snapshot.y, snapshot.z);
-    bot.heading = snapshot.heading;
-    bot.moveHeading = snapshot.heading;
-    bot.speed = snapshot.speed;
+    bot.group.visible = false;
+    bot.healthBarGroup.visible = false;
   });
   maxMode.ball.position.set(frame.ball.x, frame.ball.y, frame.ball.z);
 }
@@ -3768,6 +3918,10 @@ function finishGoalReplay() {
   maxMode.replayFrameIndex = 0;
   maxMode.replayFrameTimer = 0;
   maxMode.replayMeta = "";
+  bots.forEach((bot) => {
+    bot.group.visible = !bot.demolished;
+    bot.healthBarGroup.visible = false;
+  });
   if (!maxMode.pendingKickoff) return;
   const { winner } = maxMode.pendingKickoff;
   resetMaxKickoffPositions();
@@ -3813,6 +3967,13 @@ function recordMaxBallTouch(car, preVelocity, postVelocity) {
   const now = state.elapsed;
   car.lastTouchAt = now;
   car.lastTouchType = "touch";
+  if (isRiskMode()) {
+    if (car === player) {
+      maxMode.riskMemory.playerTouches = Math.min(8, maxMode.riskMemory.playerTouches + 1);
+    } else {
+      maxMode.riskMemory.recentMisses = Math.max(0, maxMode.riskMemory.recentMisses - 1);
+    }
+  }
   const attackDirection = car.team === "blue" ? 1 : -1;
   if (preVelocity.z * attackDirection > 10 && postVelocity.z * attackDirection > preVelocity.z * attackDirection + 1) {
     markShotForTouch(car);
@@ -3905,9 +4066,18 @@ function scoreMaxGoal(team) {
     const assistCar = [player, ...bots].find((car) => getCarLabel(car) === assist.label);
     if (assistCar) assistCar.matchStats.assists += 1;
   }
-  const replayFrames = maxMode.replayBuffer.slice(-Math.min(maxMode.replayBuffer.length, MAX_REPLAY_RULES.maxFrames));
+  const replayFrames = maxMode.replayBuffer.slice(-Math.min(maxMode.replayBuffer.length, 26));
   const meta = `${team === "blue" ? "Blue" : "Red"} goal${scorer ? ` by ${scorer.label}` : ""}${assist ? `, assist ${assist.label}` : ""}`;
   maxMode.stats.lastGoal = { team, scorer, assist, replayFrames, meta };
+  if (isRiskMode()) {
+    if (team === "blue") {
+      maxMode.riskMemory.redConceded += 1;
+      maxMode.riskMemory.playerTouches = 0;
+    } else {
+      maxMode.riskMemory.blueConceded += 1;
+      maxMode.riskMemory.recentMisses = Math.min(8, maxMode.riskMemory.recentMisses + 2);
+    }
+  }
   addMatchEvent("goal", { team, scorer: scorer?.label ?? null, assist: assist?.label ?? null });
   for (let i = 0; i < 34; i += 1) {
     spawnFx(
@@ -4147,6 +4317,10 @@ function resolveMaxBumps() {
 
 function updateMaxBots(dt) {
   const ballPos = maxMode.ball?.position ?? new THREE.Vector3();
+  if (isRiskMode()) {
+    maxMode.riskMemory.playerTouches = Math.max(0, maxMode.riskMemory.playerTouches - dt * 0.18);
+    maxMode.riskMemory.recentMisses = Math.max(0, maxMode.riskMemory.recentMisses - dt * 0.12);
+  }
   bots.forEach((bot) => {
     if (updateDemolishedCar(bot, dt)) {
       bot.update(dt);
@@ -4165,12 +4339,13 @@ function updateMaxBots(dt) {
       constrainMaxArenaCar(bot, dt);
       return;
     }
-    const target = getMaxBotTarget(bot);
+    const target = isRiskMode() ? getRiskBotTarget(bot) : getMaxBotTarget(bot);
     const desiredHeading = Math.atan2(target.x - bot.position.x, target.z - bot.position.z);
     const steer = THREE.MathUtils.clamp(angleDifference(bot.heading, desiredHeading), -1, 1);
-    const turnAuthority = bot.role === "goalie" ? 1.3 : 1.16;
+    const riskWeight = isRiskMode() ? getRiskRoleWeight(bot) * (bot.riskSkill ?? 1) : 1;
+    const turnAuthority = (bot.role === "goalie" ? 1.3 : 1.16) * (isRiskMode() ? 1.05 + riskWeight * 0.08 : 1);
     bot.heading += steer * bot.turnRate * dt * turnAuthority;
-    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * (bot.role === "goalie" ? 4.2 : 3.3));
+    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, dt * ((bot.role === "goalie" ? 4.2 : 3.3) + (isRiskMode() ? riskWeight * 0.7 : 0)));
     const toBall = bot.position.distanceTo(ballPos);
     const attackSpeedBase =
       bot.role === "goalie"
@@ -4178,25 +4353,33 @@ function updateMaxBots(dt) {
         :
       bot.role === "defender"
         ? 32
+        : bot.role === "sweeper"
+          ? 35
         : bot.role === "support"
           ? 37
+          : bot.role === "playmaker"
+            ? 39
           : bot.role === "wing"
             ? 40
             : 43;
     const wantsBoost =
       bot.role !== "goalie" &&
-      (toBall > 46 || Math.abs(ballPos.z - bot.position.z) > 140 || (bot.team === "red" && ballPos.z < 40) || (bot.team === "blue" && ballPos.z > -40));
-    if (wantsBoost && Math.random() < dt * 1.8) {
+      (toBall > (isRiskMode() ? RISK_MODE_RULES.boostTriggerRange : 46) ||
+        Math.abs(ballPos.z - bot.position.z) > 140 ||
+        (bot.team === "red" && ballPos.z < 40) ||
+        (bot.team === "blue" && ballPos.z > -40));
+    if (wantsBoost && Math.random() < dt * (isRiskMode() ? 2.6 : 1.8)) {
       bot.maxBoostTimer = 0.5;
     }
     const attackSpeed = THREE.MathUtils.clamp(
       attackSpeedBase +
         (toBall > 52 ? (bot.role === "goalie" ? 3 : 8) : 0) +
-        ((bot.maxBoostTimer ?? 0) > 0 ? 9 : 0),
+        ((bot.maxBoostTimer ?? 0) > 0 ? 9 : 0) +
+        (isRiskMode() ? (maxMode.riskMemory.playerTouches + maxMode.riskMemory.recentMisses) * 0.65 : 0),
       24,
-      bot.role === "goalie" ? 42 : 56
+      bot.role === "goalie" ? (isRiskMode() ? 48 : 42) : isRiskMode() ? 62 : 56
     );
-    bot.speed += (attackSpeed - bot.speed) * dt * (bot.role === "goalie" ? 3.1 : 2.7);
+    bot.speed += (attackSpeed - bot.speed) * dt * ((bot.role === "goalie" ? 3.1 : 2.7) + (isRiskMode() ? riskWeight * 0.25 : 0));
     const forward = new THREE.Vector3(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
     bot.velocity.copy(forward).multiplyScalar(bot.speed);
     const separation = new THREE.Vector3();
@@ -4205,27 +4388,36 @@ function updateMaxBots(dt) {
       const dx = bot.position.x - other.position.x;
       const dz = bot.position.z - other.position.z;
       const distSq = dx * dx + dz * dz;
-      if (distSq <= 1 || distSq > 46 * 46) return;
+      if (distSq <= 1 || distSq > (isRiskMode() ? 62 : 46) * (isRiskMode() ? 62 : 46)) return;
       separation.x += dx / distSq;
       separation.z += dz / distSq;
     });
     if (separation.lengthSq() > 0) {
-      separation.normalize().multiplyScalar(6.2);
+      separation.normalize().multiplyScalar(isRiskMode() ? 4.4 : 6.2);
       bot.velocity.add(separation);
+    }
+    if (isRiskMode()) {
+      const chainMate = bots.find((other) => other !== bot && other.team === bot.team && !other.demolished && other.position.distanceTo(bot.position) < 82);
+      if (chainMate) {
+        const handoff = chainMate.position.clone().sub(bot.position).multiplyScalar(0.06 * RISK_MODE_RULES.passingBias);
+        bot.velocity.add(handoff);
+      }
     }
     if (
       bot.team === "red" &&
       bot.position.distanceTo(player.position) < MAX_BOT_LUNGE_RANGE - 4 &&
       (bot.maxBotLungeTimer ?? 0) <= 0 &&
-      Math.random() < dt * (bot.role === "goalie" ? 0.4 : 1.8)
+      Math.random() < dt * (bot.role === "goalie" ? 0.4 : 1.8) * (isRiskMode() ? RISK_MODE_RULES.lungeRateMult : 1)
     ) {
       performMaxBotLunge(bot, player);
     }
     if (
       bot.position.distanceTo(ballPos) < (bot.role === "goalie" ? MAX_BALL_LUNGE_RANGE : MAX_BALL_LUNGE_RANGE - 8) &&
-      Math.random() < dt * (bot.role === "goalie" ? 2.6 : 1.2)
+      Math.random() < dt * (bot.role === "goalie" ? 2.6 : 1.2) * (isRiskMode() ? 1.4 : 1)
     ) {
       performMaxBallLunge(bot);
+    } else if (isRiskMode() && bot.position.distanceTo(ballPos) < 24) {
+      maxMode.riskMemory.recentMisses = Math.min(8, maxMode.riskMemory.recentMisses + dt * 0.8);
     }
     if (bot.role === "goalie") {
       bot.velocity.x *= 1.16;
@@ -4263,6 +4455,24 @@ function updateBots(dt) {
     deviceAssist.botSpeedMult *
     (settings.devMode ? devTuning.botSpeedMult : 1);
   if (bots.length === 0) return;
+  const riskAiActive = settings.campaignAiMode === "risk";
+
+  const closestBotDistance = bots.reduce((best, bot) => Math.min(best, bot.position.distanceTo(player.position)), Infinity);
+  const playerSpeedAbs = Math.abs(player.speed);
+  if (riskAiActive && closestBotDistance > 34 && playerSpeedAbs > 18 && state.running) {
+    state.campaignRisk.recentEscapes = Math.min(6, state.campaignRisk.recentEscapes + dt * 0.55);
+  } else {
+    state.campaignRisk.recentEscapes = Math.max(0, state.campaignRisk.recentEscapes - dt * 0.18);
+  }
+  state.campaignRisk.recentHits = Math.max(0, state.campaignRisk.recentHits - dt * 0.08);
+  state.campaignRisk.nearMisses = Math.max(0, state.campaignRisk.nearMisses - dt * 0.12);
+  const adaptivePressure =
+    riskAiActive
+      ? 1 +
+        state.campaignRisk.recentEscapes * 0.16 +
+        state.campaignRisk.recentHits * 0.08 +
+        state.campaignRisk.nearMisses * 0.12
+      : 1;
 
   const packCenter = new THREE.Vector3();
   for (let i = 0; i < bots.length; i += 1) {
@@ -4275,29 +4485,33 @@ function updateBots(dt) {
 
   bots.forEach((bot, index) => {
     bot.aiBurstCooldown = Math.max(0, bot.aiBurstCooldown - dt);
-    const predictionTime = THREE.MathUtils.clamp((bot.position.distanceTo(player.position) / 60) * profile.leadFactor, 0.05, 0.85);
+    const predictionTime = THREE.MathUtils.clamp(
+      (bot.position.distanceTo(player.position) / 60) * profile.leadFactor * (1 + (riskAiActive ? state.campaignRisk.recentEscapes * 0.12 : 0)),
+      0.05,
+      1.05
+    );
     const predicted = tempVector
       .copy(player.position)
       .addScaledVector(player.velocity, predictionTime)
-      .addScaledVector(playerForward, 2.8 + Math.abs(player.speed) * 0.04);
+      .addScaledVector(playerForward, 2.8 + Math.abs(player.speed) * (0.04 + (riskAiActive ? state.campaignRisk.recentEscapes * 0.01 : 0)));
 
     const role = getBotRole(index, bots.length, profile.teamwork);
     const roleTarget = tempVectorB.copy(predicted);
-    const flankOffset = 12 + profile.teamwork * 10;
-    if (role === "intercept") roleTarget.addScaledVector(playerForward, 11);
-    if (role === "left_flank") roleTarget.addScaledVector(playerRight, -flankOffset).addScaledVector(playerForward, 4);
-    if (role === "right_flank") roleTarget.addScaledVector(playerRight, flankOffset).addScaledVector(playerForward, 4);
-    if (role === "cutoff") roleTarget.addScaledVector(playerForward, 18 + Math.abs(player.speed) * 0.24);
-    if (role === "pressure") roleTarget.addScaledVector(playerForward, 6);
+    const flankOffset = Math.max(7, 12 + profile.teamwork * 10 - (riskAiActive ? state.campaignRisk.recentEscapes * 2.4 : 0));
+    if (role === "intercept") roleTarget.addScaledVector(playerForward, 11 + (riskAiActive ? state.campaignRisk.recentEscapes * 2.2 : 0));
+    if (role === "left_flank") roleTarget.addScaledVector(playerRight, -flankOffset).addScaledVector(playerForward, 4 + (riskAiActive ? state.campaignRisk.recentHits * 0.8 : 0));
+    if (role === "right_flank") roleTarget.addScaledVector(playerRight, flankOffset).addScaledVector(playerForward, 4 + (riskAiActive ? state.campaignRisk.recentHits * 0.8 : 0));
+    if (role === "cutoff") roleTarget.addScaledVector(playerForward, 18 + Math.abs(player.speed) * (0.24 + (riskAiActive ? state.campaignRisk.recentEscapes * 0.03 : 0)));
+    if (role === "pressure") roleTarget.addScaledVector(playerForward, 6 + (riskAiActive ? state.campaignRisk.nearMisses * 0.9 : 0));
 
     // Team convergence keeps bots coordinated into a moving net on classic/brutal.
-    roleTarget.addScaledVector(tempVectorC.copy(packCenter).sub(bot.position), profile.teamwork * 0.18);
+    roleTarget.addScaledVector(tempVectorC.copy(packCenter).sub(bot.position), profile.teamwork * 0.18 * adaptivePressure);
 
     const toTarget = tempVectorC.copy(roleTarget).sub(bot.position);
     const distance = toTarget.length();
     const desiredHeading = Math.atan2(toTarget.x, toTarget.z);
     let steer = THREE.MathUtils.clamp(angleDifference(bot.heading, desiredHeading), -1, 1);
-    steer *= profile.botSkill;
+    steer *= profile.botSkill * Math.min(1.35, 1 + (riskAiActive ? state.campaignRisk.recentEscapes * 0.06 : 0));
 
     let nearestBotDistance = 999;
     // Local separation keeps bots from stacking and helps flanking spread.
@@ -4309,26 +4523,30 @@ function updateBots(dt) {
       const d2 = dx * dx + dz * dz;
       const d = Math.sqrt(d2);
       if (d < nearestBotDistance) nearestBotDistance = d;
-      if (d2 > 0.01 && d2 < 36) {
+      if (d2 > 0.01 && d2 < 36 + (riskAiActive ? state.campaignRisk.recentEscapes * 5 : 0)) {
         steer += (dx - dz) * 0.0045;
       }
     }
     steer = THREE.MathUtils.clamp(steer, -1, 1);
 
-    bot.heading += steer * bot.turnRate * dt * profile.reaction * deviceAssist.botReactionMult;
-    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, (1.9 + profile.botSkill) * dt);
+    bot.heading += steer * bot.turnRate * dt * profile.reaction * deviceAssist.botReactionMult * Math.min(1.3, 1 + (riskAiActive ? state.campaignRisk.recentHits * 0.04 : 0));
+    bot.moveHeading = THREE.MathUtils.lerp(bot.moveHeading, bot.heading, (1.9 + profile.botSkill + (riskAiActive ? state.campaignRisk.nearMisses * 0.18 : 0)) * dt);
 
     const desiredRange =
-      role === "cutoff" ? 20 : role === "left_flank" || role === "right_flank" ? 14 : role === "intercept" ? 9 : 11;
+      Math.max(
+          6,
+        (role === "cutoff" ? 20 : role === "left_flank" || role === "right_flank" ? 14 : role === "intercept" ? 9 : 11) -
+          (riskAiActive ? state.campaignRisk.recentEscapes * 0.8 : 0)
+      );
     const rangeError = distance - desiredRange;
     let throttleFactor = THREE.MathUtils.clamp(rangeError / 26 + 0.55, 0.18, 1.28);
     if (distance < desiredRange * 0.8) throttleFactor *= 0.62;
     if (nearestBotDistance < 7) throttleFactor *= 0.7;
 
-    let speedBoost = distance > 50 ? 1.28 : 1;
-    if (bot.aiBurstCooldown <= 0 && distance > desiredRange * 1.15 && Math.random() < profile.burstChance * dt * 12) {
+    let speedBoost = distance > 50 ? 1.28 + (riskAiActive ? state.campaignRisk.recentEscapes * 0.06 : 0) : 1;
+    if (bot.aiBurstCooldown <= 0 && distance > desiredRange * 1.15 && Math.random() < profile.burstChance * adaptivePressure * dt * 12) {
       bot.aiBurstCooldown = THREE.MathUtils.randFloat(1.1, 2.1);
-      speedBoost += 0.28;
+      speedBoost += 0.28 + (riskAiActive ? state.campaignRisk.nearMisses * 0.05 : 0);
     }
     bot.speed += bot.accel * dt * throttleFactor * slowMultiplier;
     if (distance < desiredRange * 0.65) {
@@ -4336,7 +4554,10 @@ function updateBots(dt) {
     }
     const roleCap =
       role === "cutoff" ? 1.2 : role === "left_flank" || role === "right_flank" ? 1.12 : role === "intercept" ? 1.08 : 1;
-    bot.speed = Math.min(targetSpeed * speedBoost * roleCap, bot.maxSpeed + state.heat * 6.5 * profile.heatRamp);
+    bot.speed = Math.min(
+      targetSpeed * speedBoost * roleCap * Math.min(1.18, 1 + (riskAiActive ? state.campaignRisk.recentEscapes * 0.04 : 0)),
+      bot.maxSpeed + state.heat * 6.5 * profile.heatRamp + (riskAiActive ? state.campaignRisk.recentHits * 1.4 : 0)
+    );
     if (isCarAirborne(bot)) {
       applyAirborneSpeedRules(bot, {
         boostActive: bot.aiBurstCooldown > 0,
@@ -4348,7 +4569,7 @@ function updateBots(dt) {
     const forward = tempVectorC.set(Math.sin(bot.moveHeading), 0, Math.cos(bot.moveHeading));
     bot.velocity.copy(forward).multiplyScalar(bot.speed);
 
-    if (index % 2 === 0 && distance < 18) {
+    if (index % 2 === 0 && distance < 18 + (riskAiActive ? state.campaignRisk.nearMisses * 1.4 : 0)) {
       bot.velocity.add(new THREE.Vector3(Math.cos(bot.heading), 0, -Math.sin(bot.heading)).multiplyScalar(6 * profile.botSkill));
     }
 
@@ -4373,9 +4594,11 @@ function updateBots(dt) {
       bot.speed *= 0.65;
     } else if (hitEval.horizontalTouch && !hitEval.verticalTouch) {
       state.missedVerticalHitSamples += 1;
+      if (riskAiActive) state.campaignRisk.nearMisses = Math.min(6, state.campaignRisk.nearMisses + 0.18);
       debugLog("hits", "rejected_vertical_overlap", { botId: bot.botId, playerY: player.position.y, botY: bot.position.y });
     } else if (state.running && Math.abs(bot.speed) + Math.abs(player.speed) > 62 && hitDistance < BOT_HIT_RADIUS * 1.6) {
       state.missedHitSamples += 1;
+      if (riskAiActive) state.campaignRisk.nearMisses = Math.min(6, state.campaignRisk.nearMisses + 0.12);
     }
   });
 }
@@ -4446,6 +4669,13 @@ function updateBoostPads(dt = 0.016) {
 
 function updateCamera(dt) {
   const deviceAssist = getDeviceAssistTuning();
+  if (maxMode.replayActive && maxMode.ball) {
+    const center = player.position.clone().lerp(maxMode.ball.position, 0.68);
+    const desired = center.clone().add(new THREE.Vector3(0, 12.5, -18));
+    camera.position.lerp(desired, dt * 4.4);
+    camera.lookAt(center.clone().add(new THREE.Vector3(0, 2.2, 0)));
+    return;
+  }
   const cameraTarget = player.position.clone();
   const gameDistanceMult = isMaxMode() ? 1.36 : 1;
   const gameHeightMult = isMaxMode() ? 1.18 : 1;
@@ -4839,7 +5069,8 @@ function updateHud() {
       hudLabelNodes[6].textContent = "Drift";
     }
     hudWorld.textContent = getWorld().name;
-    hudLevel.textContent = state.effectToast ? `${level.name} - ${state.effectToast}` : level.name;
+    const levelLabel = settings.campaignAiMode === "risk" ? `${level.name} [Risk]` : level.name;
+    hudLevel.textContent = state.effectToast ? `${levelLabel} - ${state.effectToast}` : levelLabel;
     hudScore.textContent = Math.floor(state.score).toString();
     hudSpeed.textContent = `${Math.round(Math.abs(player.speed) * SPEED_TO_MPH_MULT)} MPH`;
     renderLivesHud();
@@ -4899,6 +5130,7 @@ function loseLife() {
   player.moveHeading = 0;
   player.prevPosition.copy(player.position);
   input.backflip = false;
+  state.campaignRisk.recentEscapes = Math.max(0, state.campaignRisk.recentEscapes - 0.5);
 }
 
 function handlePlayerHit(sourceBotId = -1) {
@@ -4925,6 +5157,8 @@ function handlePlayerHit(sourceBotId = -1) {
   state.lastHitAt = now;
   state.lastHitByBotId = sourceBotId;
   state.hitCount += 1;
+  state.campaignRisk.recentHits = Math.min(6, state.campaignRisk.recentHits + 1.25);
+  state.campaignRisk.nearMisses = Math.max(0, state.campaignRisk.nearMisses - 0.6);
   debugLog("hits", "detected", { sourceBotId, hitCount: state.hitCount });
 
   if (state.shield > 0.2) {
@@ -5034,6 +5268,7 @@ function completeLevel() {
       levelIndex: nextProgress.levelIndex,
       settings: {
         difficulty: settings.difficulty,
+        campaignAiMode: settings.campaignAiMode,
         invertSteer: settings.invertSteer,
         cameraFocus: settings.cameraFocus,
         rampDensity: settings.rampDensity,
@@ -5339,7 +5574,13 @@ gameCards.forEach((card) => {
     const nextMode = card.dataset.gameMode;
     setActiveGameMode(nextMode, { save: true, reset: state.running });
     setActiveTab("games");
-    setEffectToast(nextMode === GAME_MODE_MAX1 ? "InfernoDriftMax 1 Ready" : "InfernoDrift 3.3 Ready");
+    setEffectToast(
+      nextMode === GAME_MODE_RISK
+        ? "TRY AT YOUR OWN RISK Ready"
+        : nextMode === GAME_MODE_MAX1
+          ? "InfernoDriftMax 1 Ready"
+          : "InfernoDrift 3.3 Ready"
+    );
   });
 });
 
@@ -5359,6 +5600,13 @@ difficultySelect.addEventListener("change", (event) => {
     throttle: input.throttle,
     brake: input.brake
   });
+  savePersistentState();
+});
+
+campaignAiSelect?.addEventListener("change", (event) => {
+  settings.campaignAiMode = event.target.value === "risk" ? "risk" : "normal";
+  resetCampaignRiskMemory();
+  refreshDevModeUi();
   savePersistentState();
 });
 
@@ -5674,7 +5922,7 @@ if (deviceModeSelect) {
 window.render_game_to_text = () => {
   const currentCustomization = getCurrentCustomization();
   const payload = {
-    mode: isMaxMode() ? "infernodriftmax1" : "infernodrift33",
+    mode: isRiskMode() ? GAME_MODE_RISK : isMaxMode() ? GAME_MODE_MAX1 : GAME_MODE_ID33,
     note: "origin center, +x right, +z north/forward, +y up",
     running: state.running,
     replay: maxMode.replayActive,
@@ -5718,9 +5966,13 @@ window.render_game_to_text = () => {
     stats: isMaxMode()
       ? {
           player: player.matchStats,
-          latest: maxMode.stats?.events?.[0] ?? null
+          latest: maxMode.stats?.events?.[0] ?? null,
+          risk: isRiskMode() ? maxMode.riskMemory : null
         }
-      : null
+      : {
+          mode: settings.campaignAiMode,
+          campaignRisk: state.campaignRisk
+        }
   };
   return JSON.stringify(payload);
 };
