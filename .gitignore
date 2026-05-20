@@ -1,1 +1,16 @@
-.codex/
+node_modules/
+dist/
+apps/*/dist/
+apps/server/data/
+packages/*/dist/
+*.tsbuildinfo
+data/
+output/playwright/
+output/rescue-core*/
+output/smoke/
+output/web-game/
+output/web-game-audit*/
+test-results/
+.DS_Store
+.env
+.wrangler/

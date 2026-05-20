@@ -1,9 +1,8 @@
 {
-  "name": "InfernoDrift",
-  "short_name": "InfernoDrift",
-  "description": "Neon survival drifting on GitHub Pages.",
-  "start_url": "/InfernoDrift/",
-  "scope": "/InfernoDrift/",
+  "name": "InfernoDrift4",
+  "short_name": "InfernoDrift4",
+  "description": "Neon-fire survival drifting evolved from the current InfernoDrift.",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#07101a",
   "theme_color": "#0b1724",
@@ -13,6 +12,12 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    },
+    {
+      "src": "icon-48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icon-192.png",

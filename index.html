@@ -3,21 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>InfernoDrift 3</title>
-    <meta name="theme-color" content="#0b1724" />
+    <title>InfernoDrift4</title>
+    <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" href="icon-48.png" sizes="48x48" />
+    <link rel="icon" type="image/png" href="icon-192.png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <link rel="canonical" href="https://canimal4.github.io/InfernoDrift/" />
-    <link rel="manifest" href="manifest.webmanifest?v=20260518" />
-    <link rel="icon" href="favicon.ico?v=20260518" sizes="any" />
-    <link rel="icon" href="icon.svg?v=20260518" type="image/svg+xml" />
-    <link rel="icon" href="icon-192.png?v=20260518" type="image/png" sizes="192x192" />
-    <link rel="apple-touch-icon" href="icon-192.png?v=20260518" />
+    <meta name="theme-color" content="#0b1724" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=20260518" />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div id="game-wrap">
@@ -25,61 +25,82 @@
 
       <div class="progress"><span id="progress"></span></div>
 
-      <div class="hud">
-        <div class="pill">
-          <span class="label">World</span>
-          <strong id="hud-world">—</strong>
+      <div class="hud" id="hud">
+        <div class="hud-cluster hud-cluster-run" aria-label="Run status">
+          <div class="pill run-pill">
+            <span class="label">Zone</span>
+            <strong id="hud-world">—</strong>
+          </div>
+          <div class="pill run-pill">
+            <span class="label">Heat</span>
+            <strong id="hud-level">—</strong>
+          </div>
+          <div class="pill run-pill">
+            <span class="label">Clock</span>
+            <strong id="hud-time">0:00</strong>
+          </div>
+          <div class="pill run-pill">
+            <span class="label">Score</span>
+            <strong id="hud-score">0</strong>
+          </div>
         </div>
-        <div class="pill">
-          <span class="label">Level</span>
-          <strong id="hud-level">—</strong>
+        <div class="hud-cluster hud-cluster-drive" aria-label="Vehicle status">
+          <div class="pill drive-pill">
+            <span class="label">Speed</span>
+            <strong id="hud-speed">0 MPH</strong>
+          </div>
+          <div class="pill drive-pill lives-pill">
+            <span class="label">Lives</span>
+            <div id="hud-hearts" class="hearts" aria-label="Lives"></div>
+            <strong id="hud-lives" class="lives-count">3/5</strong>
+          </div>
+          <div class="status">
+            <div class="pill meter-pill">
+              <div class="label">Boost</div>
+              <div class="bar"><span id="boost-bar"></span></div>
+            </div>
+            <div class="pill meter-pill">
+              <div class="label">Shield</div>
+              <div class="bar"><span id="shield-bar"></span></div>
+            </div>
+          </div>
+          <button class="pill menu-btn" id="menu-btn" type="button">Menu</button>
         </div>
-        <div class="pill">
-          <span class="label">Time</span>
-          <strong id="hud-time">0:00</strong>
-        </div>
-        <div class="pill">
-          <span class="label">Score</span>
-          <strong id="hud-score">0</strong>
-        </div>
-        <div class="pill">
-          <span class="label">Speed</span>
-          <strong id="hud-speed">0 MPH</strong>
-        </div>
-        <div class="pill lives-pill">
-          <span class="label">Lives</span>
-          <div id="hud-hearts" class="hearts" aria-label="Lives"></div>
-          <strong id="hud-lives" class="lives-count">3/5</strong>
-        </div>
-        <div class="pill">
-          <span class="label">Drift</span>
-          <strong id="hud-combo">x1</strong>
-        </div>
-        <button class="pill menu-btn" id="menu-btn" type="button">Menu</button>
       </div>
 
-      <div class="status">
-        <div class="pill">
-          <div class="label">Boost</div>
-          <div class="bar"><span id="boost-bar"></span></div>
-        </div>
-        <div class="pill">
-          <div class="label">Shield</div>
-          <div class="bar"><span id="shield-bar"></span></div>
-        </div>
-      </div>
+      <div class="effect-toast" id="effect-toast" aria-live="polite"></div>
+      <button
+        class="daily-gift"
+        id="daily-gift"
+        type="button"
+        aria-live="polite"
+        hidden
+      >
+        <span class="daily-gift-kicker">Daily Gift</span>
+        <strong id="daily-gift-amount">+100 XP</strong>
+        <span>Tap to redeem</span>
+      </button>
 
       <div class="debug-hud" id="debug-hud" hidden></div>
 
       <div class="match-panel" id="match-panel" hidden>
         <div class="match-panel-header">
-          <span class="eyebrow">Arena Box Score</span>
-          <strong id="match-panel-score">Blue 0 - 0 Red</strong>
+          <span class="eyebrow">Match</span>
+          <strong id="match-panel-score">0 - 0</strong>
         </div>
         <div class="match-panel-body">
           <div class="match-panel-stats" id="match-panel-stats"></div>
-          <p class="match-panel-meta" id="match-panel-meta">No replay loaded.</p>
+          <p class="match-panel-meta" id="match-panel-meta">Live</p>
         </div>
+      </div>
+
+      <div class="battle-scope" id="battle-scope" aria-hidden="true">
+        <div class="scope-ring"></div>
+        <div class="scope-line scope-line-x"></div>
+        <div class="scope-line scope-line-y"></div>
+        <div class="scope-dot"></div>
+        <div class="scope-readout scope-readout-left">LOCK</div>
+        <div class="scope-readout scope-readout-right">FIRE</div>
       </div>
 
       <div class="touch-controls" id="touch-controls">
@@ -88,12 +109,13 @@
             <div id="touch-steer-knob" class="touch-steer-knob"></div>
           </div>
         </div>
-        <div class="touch-buttons">
-          <button id="touch-jump" class="ghost">Jump</button>
-          <button id="touch-drift">Drift</button>
-          <button id="touch-boost" class="primary">Boost</button>
-          <button id="touch-backflip" class="ghost">Backflip</button>
-        </div>
+          <div class="touch-buttons">
+            <button id="touch-jump" class="ghost">Jump</button>
+            <button id="touch-drift">Drift</button>
+            <button id="touch-boost" class="primary">Boost</button>
+            <button id="touch-laser" class="ghost" hidden>Laser</button>
+            <button id="touch-backflip" class="ghost" hidden>Trick</button>
+          </div>
       </div>
 
       <div class="minimap-wrap">
@@ -103,16 +125,60 @@
 
       <div class="overlay show" id="overlay">
         <div class="panel">
-          <h1>InfernoDrift 3</h1>
+          <div class="overlay-kicker">InfernoDrift4 Handling, Full InfernoDrift4 Heat</div>
+          <h1>InfernoDrift4</h1>
           <p class="subtitle" id="overlay-subtitle">
             Free-roam survival racers. Drift through neon arenas, grab powerups, launch off ramps,
             and stay ahead of relentless hunter bots.
           </p>
-          <div class="cta-row">
-            <button class="primary" id="start-btn">Start Ignite Run</button>
-            <button class="ghost" id="tutorial-btn">Quick Tips</button>
+          <div class="account-start-card" id="account-start-card">
+            <div class="custom-section-title">Start Profile</div>
+            <div class="account-start-grid">
+              <label class="field">
+                <span>Username</span>
+                <input id="start-account-username" type="text" maxlength="24" placeholder="Your racer name" autocomplete="username" />
+              </label>
+              <label class="field">
+                <span>Password</span>
+                <input id="start-account-password" type="password" minlength="6" maxlength="128" placeholder="6+ characters" autocomplete="current-password" />
+              </label>
+              <label class="field">
+                <span>Age</span>
+                <input id="start-account-age" type="number" min="0" max="120" inputmode="numeric" placeholder="Your real age" />
+              </label>
+            </div>
+            <div class="cta-row">
+              <button class="primary" id="start-here-btn" type="button">Start Here: First Race</button>
+              <button class="primary" id="start-account-submit" type="button">Create / Sign In</button>
+              <button class="ghost" id="start-btn" type="button">Play as Guest</button>
+              <button class="ghost" id="tutorial-btn" type="button">Quick Tips</button>
+            </div>
+            <p class="hint" id="start-account-status">
+              Guest names are random and temporary for online identity. Accounts require a configured InfernoDrift4 backend.
+            </p>
+          </div>
+          <div class="overlay-notes">
+            <span>Sharper steering</span>
+            <span>Boost-forward runs</span>
+            <span>Fast restarts</span>
           </div>
           <div class="controls" id="tips" style="display: none;"></div>
+        </div>
+      </div>
+
+      <div class="overlay school-gate" id="school-gate" aria-modal="true" role="dialog">
+        <div class="panel school-gate-panel">
+          <div class="overlay-kicker">School Time Check</div>
+          <h2>It looks like you may be in school, are you sure you want to continue?</h2>
+          <p class="subtitle" id="school-gate-detail">
+            InfernoDrift4 is paused while class may be in session.
+          </p>
+          <div class="cta-row school-gate-actions">
+            <button class="primary school-leave-btn" id="school-leave" type="button">Leave</button>
+            <button class="text-link school-continue-link" id="school-continue" type="button">
+              I know the risks, continue
+            </button>
+          </div>
         </div>
       </div>
 
@@ -120,9 +186,11 @@
         <div class="panel">
           <h2 id="message-title">Level Complete</h2>
           <p class="subtitle" id="message-body">You melted the asphalt. Ready for the next heat?</p>
+          <div class="result-grid" id="message-stats" hidden></div>
           <div class="cta-row">
             <button class="primary" id="next-btn">Next</button>
             <button class="ghost" id="retry-btn">Retry</button>
+            <button class="ghost" id="help-btn" type="button">Help</button>
           </div>
         </div>
       </div>
@@ -130,18 +198,271 @@
       <div class="overlay" id="menu">
         <div class="panel menu-panel">
           <div class="menu-header">
-            <h2>InfernoDrift 3</h2>
-            <button class="ghost" id="menu-close" type="button">Close</button>
+            <div>
+              <div class="overlay-kicker" id="menu-state-label">Paused</div>
+              <h2>InfernoDrift4</h2>
+            </div>
+            <button class="ghost" id="menu-feedback" type="button">Feedback</button>
+          </div>
+          <div class="menu-actions" aria-label="Pause actions">
+            <button class="primary" id="menu-resume" type="button">Resume</button>
+            <button class="ghost" id="menu-restart" type="button">Restart Run</button>
           </div>
           <div class="menu-tabs">
-            <button class="tab-btn active" data-tab="settings" type="button">Settings</button>
-            <button class="tab-btn dev-only-tab" id="games-tab-btn" data-tab="games" type="button">Games</button>
-            <button class="tab-btn" data-tab="customize" type="button">Customize</button>
+            <button class="tab-btn active" id="games-tab-btn" data-tab="games" type="button">Play</button>
+            <button class="tab-btn" data-tab="customize" type="button">Garage</button>
+            <button class="tab-btn" data-tab="progress" type="button">Progress</button>
+            <button class="tab-btn" data-tab="profile" type="button">Profile</button>
+            <button class="tab-btn" data-tab="online" type="button">Online</button>
+            <button class="tab-btn" data-tab="leaderboard" type="button">Leaderboard</button>
+            <button class="tab-btn" data-tab="settings" type="button">Settings</button>
             <button class="tab-btn" data-tab="controls" type="button">Controls</button>
-            <button class="tab-btn" data-tab="howto" type="button">How to Play</button>
           </div>
-          <div class="menu-content">
-            <section class="tab-panel active" id="tab-settings">
+          <div class="menu-content" id="menu-content">
+            <section class="tab-panel active" id="tab-games">
+              <p class="hint">Pick a run. Every mode keeps the same InfernoDrift4 driving feel, then changes the objective.</p>
+              <div class="mode-board" id="mode-board" aria-label="Offline mode board"></div>
+              <div class="mode-brief" id="mode-brief"></div>
+            </section>
+            <section class="tab-panel" id="tab-customize">
+              <div class="garage-shell">
+                <div class="garage-preview-card">
+                  <div class="custom-section-title">Preview Bay</div>
+                  <div id="garage-preview" class="garage-preview" aria-label="Garage car preview"></div>
+                  <div class="garage-preview-actions">
+                    <button class="ghost" id="garage-zoom-out" type="button">Zoom -</button>
+                    <button class="ghost" id="garage-reset-view" type="button">Reset View</button>
+                    <button class="ghost" id="garage-zoom-in" type="button">Zoom +</button>
+                  </div>
+                  <p class="hint">Drag the car to spin it. Use zoom for detail checks.</p>
+                </div>
+                <div class="garage-controls">
+                  <div class="custom-section-title">Loadouts</div>
+                  <div class="loadout-slots" id="loadout-slots"></div>
+                  <label class="field">
+                    <span>Car Class</span>
+                    <select id="car-class-select"></select>
+                  </label>
+                  <div class="garage-class-summary" id="garage-class-summary"></div>
+                </div>
+              </div>
+              <div class="custom-layout">
+                <div class="custom-column">
+                  <div class="custom-section-title">Performance Build</div>
+                  <div class="custom-grid custom-grid-primary">
+                    <label class="field">
+                      <span>Body</span>
+                      <select id="body-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Wheels</span>
+                      <select id="wheel-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Driving Style</span>
+                      <select id="style-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Power</span>
+                      <select id="power-select"></select>
+                    </label>
+                  </div>
+                </div>
+                <div class="custom-column">
+                  <div class="custom-section-title">Appearance</div>
+                  <div class="custom-grid custom-grid-secondary">
+                    <label class="field">
+                      <span>Paint</span>
+                      <select id="paint-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Accent</span>
+                      <select id="accent-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Window Tint</span>
+                      <select id="tint-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Rear Kit</span>
+                      <select id="spoiler-select"></select>
+                    </label>
+                    <label class="field field-full">
+                      <span>Underglow</span>
+                      <select id="glow-select"></select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="custom-stats" id="custom-stats"></div>
+              <p class="hint" id="custom-hint">Garage changes apply instantly and unlock more parts as you clear worlds.</p>
+            </section>
+            <section class="tab-panel" id="tab-progress">
+              <div class="progress-grid" id="progress-panel"></div>
+              <p class="hint">Progress stays local unless an InfernoDrift4 backend URL is configured and connected.</p>
+            </section>
+            <section class="tab-panel" id="tab-profile">
+              <div class="profile-shell">
+                <div class="profile-card profile-hero-card">
+                  <div class="custom-section-title">Player Profile</div>
+                  <h3 id="profile-display-name">Offline Driver</h3>
+                  <p class="hint" id="profile-status-text">Sign in or play as guest to use online rooms, friends, chat, and leaderboard sync.</p>
+                  <div class="profile-badges" id="profile-badges"></div>
+                </div>
+                <div class="profile-card">
+                  <div class="custom-section-title">Progress Sync</div>
+                  <div class="profile-stat-grid">
+                    <div><span>Level</span><strong id="profile-level">1</strong></div>
+                    <div><span>Total XP</span><strong id="profile-xp">0</strong></div>
+                    <div><span>Save</span><strong id="profile-save-state">Local</strong></div>
+                    <div><span>Leaderboard</span><strong id="profile-leaderboard-state">Waiting</strong></div>
+                  </div>
+                </div>
+                <div class="profile-card">
+                  <div class="custom-section-title">Account Actions</div>
+                  <div class="cta-row compact-actions">
+                    <button class="ghost" id="profile-refresh" type="button">Refresh Profile</button>
+                    <button class="ghost" id="profile-logout" type="button">Log Out</button>
+                  </div>
+                  <label class="field">
+                    <span>Delete Confirmation</span>
+                    <input id="profile-delete-confirm" type="text" maxlength="24" placeholder="Type your username" autocomplete="off" />
+                  </label>
+                  <button class="danger" id="profile-delete" type="button">Delete Account</button>
+                  <p class="hint" id="profile-action-status">Deleting removes your online account, saves, friends, leaderboard identity, and releases your username.</p>
+                </div>
+              </div>
+            </section>
+            <section class="tab-panel" id="tab-leaderboard">
+              <div class="leaderboard-shell">
+                <div class="leaderboard-hero">
+                  <div>
+                    <div class="custom-section-title">Inferno Board</div>
+                    <h3>Season Standings</h3>
+                    <p class="hint">Backend rows are server-owned. Local/offline scores never write ranked standings directly.</p>
+                  </div>
+                  <div class="leaderboard-crown" aria-hidden="true">#1</div>
+                </div>
+                <div class="online-list leaderboard-list" id="online-leaderboard">Connect to load leaderboard.</div>
+              </div>
+            </section>
+            <section class="tab-panel" id="tab-online">
+              <div class="online-layout">
+                <div class="online-panel">
+                  <div class="custom-section-title">Account & Online</div>
+                  <div class="online-status" id="online-status">Backend ready when local server is running</div>
+                  <div class="cta-row compact-actions">
+                    <button class="primary" id="online-connect" type="button">Connect</button>
+                    <button class="ghost" id="online-disconnect" type="button">Disconnect</button>
+                  </div>
+                  <label class="field">
+                    <span>Online Name</span>
+                    <input id="online-username" type="text" maxlength="24" placeholder="Guest Racer" autocomplete="nickname" />
+                  </label>
+                  <label class="field">
+                    <span>Age</span>
+                    <input id="online-age" type="number" min="0" max="120" inputmode="numeric" placeholder="Your real age" />
+                  </label>
+                  <button class="ghost" id="online-claim" type="button">Claim Username</button>
+                  <p class="hint" id="online-age-note">Under-13 players can use quick chat only.</p>
+                  <details class="advanced-online-settings">
+                    <summary>Server settings</summary>
+                    <label class="field">
+                      <span>Backend URL</span>
+                      <input id="online-backend-url" type="url" placeholder="ws://127.0.0.1:8787/ws" autocomplete="url" />
+                    </label>
+                    <label class="field">
+                      <span>Backup Backend URLs</span>
+                      <textarea id="online-backup-urls" maxlength="600" placeholder="One backup backend URL per line"></textarea>
+                    </label>
+                    <div class="cta-row compact-actions">
+                      <button class="ghost" id="online-test-connection" type="button">Test Connection</button>
+                    </div>
+                    <div class="online-room-card connection-report" id="online-connection-report">No connection test run yet.</div>
+                    <div class="online-room-card connection-report" id="online-diagnostics">Diagnostics are waiting for a connection check.</div>
+                    <p class="hint">Hosted online uses secure HTTPS/WSS. If a school blocks the main backend, InfernoDrift4 tries healthy backup URLs and falls back to HTTPS for accounts, chat, and leaderboard when live rooms are blocked.</p>
+                  </details>
+                </div>
+                <div class="online-panel">
+                  <div class="custom-section-title">Rooms</div>
+                  <div class="online-grid">
+                    <label class="field">
+                      <span>Room Mode</span>
+                      <select id="online-room-mode">
+                        <option value="infernodrift33">Campaign Survival</option>
+                        <option value="infernodriftmax1">Max Arena</option>
+                        <option value="race">Race</option>
+                        <option value="time-trial">Time Trial</option>
+                        <option value="stunt-park">Stunt Park</option>
+                        <option value="hunter-tag">Hunter Tag</option>
+                        <option value="battle-arena">Battle Arena</option>
+                        <option value="ramp-rush">Ramp Rush</option>
+                        <option value="boost-bowling">Boost Bowling</option>
+                        <option value="lava-floor">Lava Floor</option>
+                        <option value="king-zone">King of the Zone</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>Playlist</span>
+                      <select id="online-playlist">
+                        <option value="casual">Casual</option>
+                        <option value="ranked">Ranked</option>
+                        <option value="private">Private</option>
+                        <option value="bot">Bot</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>Team Size</span>
+                      <select id="online-team-size">
+                        <option value="1">1v1</option>
+                        <option value="2" selected>2v2</option>
+                        <option value="3">3v3</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="field toggle">
+                    <span>Bot Fill</span>
+                    <input id="online-bot-fill" type="checkbox" checked />
+                  </label>
+                  <div class="cta-row compact-actions">
+                    <button class="ghost" id="online-create-room" type="button">Create Private Room</button>
+                    <button class="ghost" id="online-queue" type="button">Join Queue</button>
+                    <button class="ghost" id="online-cancel-queue" type="button">Cancel</button>
+                  </div>
+                  <div class="join-code-row">
+                    <input id="online-room-code" type="text" maxlength="10" placeholder="Room code" autocomplete="off" />
+                    <button class="ghost" id="online-join-room" type="button">Join</button>
+                    <button class="ghost" id="online-share-room" type="button">Share Code</button>
+                  </div>
+                  <div class="online-room-card" id="online-room-state">No room joined.</div>
+                </div>
+                <div class="online-panel online-chat-panel">
+                  <div class="online-chat-header">
+                    <div class="custom-section-title">Chat</div>
+                    <button class="ghost" id="online-popout-chat" type="button">Pop Out</button>
+                  </div>
+                  <div class="quick-chat-list" id="online-quick-chat"></div>
+                  <div class="chat-log" id="online-chat-log" aria-live="polite"></div>
+                  <div class="chat-compose">
+                    <input id="online-chat-input" type="text" maxlength="160" placeholder="13+ free chat, /dm, /report" />
+                    <button class="primary" id="online-chat-send" type="button">Send</button>
+                  </div>
+                </div>
+                <div class="online-panel">
+                  <div class="custom-section-title">Friends</div>
+                  <div class="join-code-row">
+                    <input id="online-friend-name" type="text" maxlength="24" placeholder="Username" autocomplete="off" />
+                    <button class="ghost" id="online-add-friend" type="button">Add</button>
+                  </div>
+                  <div class="custom-section-title">Friend Requests</div>
+                  <div class="online-list" id="online-friend-requests">No friend requests yet.</div>
+                  <div class="online-list" id="online-friends">No friend state yet.</div>
+                  <div class="custom-section-title">Recent</div>
+                  <div class="online-list" id="online-recent">No recent players yet.</div>
+                </div>
+              </div>
+            </section>
+            <section class="tab-panel" id="tab-settings">
               <label class="field">
                 <span>Difficulty</span>
                 <select id="difficulty-select">
@@ -158,6 +479,10 @@
               <label class="field toggle">
                 <span>Camera Focus</span>
                 <input id="camera-toggle" type="checkbox" />
+              </label>
+              <label class="field toggle">
+                <span>Battle Cockpit Scope</span>
+                <input id="battle-cockpit-toggle" type="checkbox" />
               </label>
               <label class="field">
                 <span>Device Mode</span>
@@ -179,10 +504,19 @@
                 </select>
               </label>
               <label class="field">
-                <span>3.3 Hunter AI</span>
+                  <span>Hunter AI</span>
                 <select id="campaign-ai-select">
                   <option value="normal">Normal</option>
-                  <option value="risk">Risk</option>
+                  <option value="adaptive">Adaptive</option>
+                </select>
+              </label>
+              <label class="field" id="max-difficulty-field" hidden>
+                <span>Max Difficulty</span>
+                <select id="max-difficulty-select">
+                  <option value="super_easy">Super Easy</option>
+                  <option value="casual">Casual</option>
+                  <option value="classic" selected>Classic</option>
+                  <option value="brutal">Brutal</option>
                 </select>
               </label>
               <label class="field toggle">
@@ -275,96 +609,129 @@
               </div>
               <p class="hint">Changes apply instantly. Press R to restart the current level.</p>
             </section>
-            <section class="tab-panel" id="tab-games">
-              <p class="hint">Dev-only mode switcher. Pick which version of InfernoDrift you want to launch.</p>
-              <div class="games-grid">
-                <button class="game-card active" id="game-card-id33" data-game-mode="infernodrift33" type="button">
-                  <img src="output/imagegen/infernodrift33-card.svg" alt="InfernoDrift 3.3 card art" />
-                  <div class="game-card-copy">
-                    <strong>InfernoDrift 3.3</strong>
-                    <span>Survival drift campaign with handcrafted level twists.</span>
-                  </div>
-                </button>
-                <button class="game-card" id="game-card-max1" data-game-mode="infernodriftmax1" type="button">
-                  <img src="output/imagegen/infernodriftmax1-card.svg" alt="InfernoDriftMax 1 card art" />
-                  <div class="game-card-copy">
-                    <strong>InfernoDriftMax 1</strong>
-                    <span>Blue vs red arena battles with wall-driving, bumps, and goals.</span>
-                  </div>
-                </button>
-                <button class="game-card" id="game-card-risk" data-game-mode="tryatyourownrisk" type="button">
-                  <img src="output/imagegen/infernodriftmax1-card.svg" alt="TRY AT YOUR OWN RISK card art" />
-                  <div class="game-card-copy">
-                    <strong>TRY AT YOUR OWN RISK</strong>
-                    <span>Dev-only adaptive arena. Bots rotate together, cover lanes, and punish bad habits.</span>
-                  </div>
-                </button>
-              </div>
-              <p class="hint" id="game-mode-hint">Current game: InfernoDrift 3.3</p>
-            </section>
-            <section class="tab-panel" id="tab-customize">
-              <div class="custom-layout">
-                <div class="custom-column">
-                  <div class="custom-section-title">Performance Build</div>
-                  <div class="custom-grid custom-grid-primary">
-                    <label class="field">
-                      <span>Body</span>
-                      <select id="body-select"></select>
-                    </label>
-                    <label class="field">
-                      <span>Wheels</span>
-                      <select id="wheel-select"></select>
-                    </label>
-                    <label class="field">
-                      <span>Driving Style</span>
-                      <select id="style-select"></select>
-                    </label>
-                    <label class="field">
-                      <span>Power</span>
-                      <select id="power-select"></select>
-                    </label>
-                  </div>
-                </div>
-                <div class="custom-column">
-                  <div class="custom-section-title">Appearance</div>
-                  <div class="custom-grid custom-grid-secondary">
-                    <label class="field">
-                      <span>Paint</span>
-                      <select id="paint-select"></select>
-                    </label>
-                    <label class="field">
-                      <span>Accent</span>
-                      <select id="accent-select"></select>
-                    </label>
-                    <label class="field">
-                      <span>Window Tint</span>
-                      <select id="tint-select"></select>
-                    </label>
-                    <label class="field">
-                      <span>Rear Kit</span>
-                      <select id="spoiler-select"></select>
-                    </label>
-                    <label class="field field-full">
-                      <span>Underglow</span>
-                      <select id="glow-select"></select>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <div class="custom-stats" id="custom-stats"></div>
-              <p class="hint" id="custom-hint">Your loadout changes your car instantly and unlocks more options as you clear worlds.</p>
-            </section>
             <section class="tab-panel" id="tab-controls">
-              <ul class="menu-list" id="controls-list"></ul>
+              <div class="control-layout">
+                <div>
+                  <div class="custom-section-title">Keyboard Map</div>
+                  <div class="remap-grid" id="controls-remap"></div>
+                  <div class="exit-link-row">
+                    <div>
+                      <strong>Q Exit Link</strong>
+                      <span>Fixed key. Edit only the destination.</span>
+                    </div>
+                    <input id="exit-link-url" type="url" inputmode="url" autocomplete="url" spellcheck="false" />
+                  </div>
+                </div>
+                <div>
+                  <div class="custom-section-title">Touch Layout</div>
+                  <label class="field">
+                    <span>Touch Preset</span>
+                    <select id="touch-layout-select">
+                      <option value="classic">Classic</option>
+                      <option value="compact">Compact</option>
+                      <option value="lefty">Lefty</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Touch Scale</span>
+                    <select id="touch-scale-select">
+                      <option value="0.86">Small</option>
+                      <option value="1" selected>Normal</option>
+                      <option value="1.14">Large</option>
+                    </select>
+                  </label>
+                  <div class="controller-card" id="controller-status">Controller: not detected</div>
+                  <p class="hint controls-hint">
+                    Help has the full move list. This panel only changes active input settings.
+                  </p>
+                </div>
+              </div>
             </section>
-            <section class="tab-panel" id="tab-howto">
-              <ol class="menu-list" id="howto-list"></ol>
-            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-help-card" id="mode-help-card" hidden>
+        <div class="mode-help-kicker">Paused Help</div>
+        <h3 id="mode-help-title">Mode Help</h3>
+        <p id="mode-help-objective"></p>
+        <div class="mode-help-lines">
+          <div><strong>Controls</strong><span id="mode-help-controls"></span></div>
+          <div><strong>Scoring</strong><span id="mode-help-scoring"></span></div>
+          <div><strong>Win</strong><span id="mode-help-win"></span></div>
+          <div><strong>Tip</strong><span id="mode-help-tip"></span></div>
+        </div>
+        <div class="cta-row compact-actions">
+          <button class="primary" id="mode-help-resume" type="button">Resume</button>
+          <button class="ghost" id="mode-help-restart" type="button">Restart</button>
+        </div>
+      </div>
+
+      <div class="chat-popout" id="chat-popout" hidden>
+        <div class="chat-popout-header">
+          <strong>Online Chat</strong>
+          <button class="ghost icon-btn" id="chat-popout-close" type="button" aria-label="Close chat">×</button>
+        </div>
+        <div class="quick-chat-list" id="chat-popout-quick"></div>
+        <div class="chat-command-panel" id="chat-command-panel" hidden></div>
+        <div class="chat-log" id="chat-popout-log" aria-live="polite"></div>
+        <div class="chat-compose">
+          <input id="chat-popout-input" type="text" maxlength="160" placeholder="13+ free chat, /dm, /report" />
+          <button class="primary" id="chat-popout-send" type="button">Send</button>
+        </div>
+      </div>
+      <div class="chat-notice" id="chat-notice" hidden>
+        <div>
+          <strong id="chat-notice-from">Chat</strong>
+          <span id="chat-notice-text"></span>
+        </div>
+        <button class="ghost icon-btn" id="chat-notice-close" type="button" aria-label="Dismiss chat notice">×</button>
+      </div>
+
+      <div class="overlay" id="feedback-modal">
+        <div class="panel feedback-panel">
+          <div class="menu-header">
+            <div>
+              <div class="overlay-kicker">InfernoDrift4 Feedback</div>
+              <h2>Feedback</h2>
+            </div>
+            <button class="ghost" id="feedback-close" type="button">Close</button>
+          </div>
+          <label class="field">
+            <span>Type</span>
+            <select id="feedback-type">
+              <option value="bug">Bug</option>
+              <option value="feature">Feature Request</option>
+              <option value="fix">Thing to Fix</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Message</span>
+            <textarea id="feedback-message" maxlength="2500" rows="5" placeholder="What happened?"></textarea>
+            <small class="feedback-counter" id="feedback-counter">0 / 2,500</small>
+          </label>
+          <label class="field toggle">
+            <span>Include Diagnostics</span>
+            <input id="feedback-diagnostics" type="checkbox" />
+          </label>
+          <label class="field toggle">
+            <span>I am 13 or older</span>
+            <input id="feedback-age-13" type="checkbox" />
+          </label>
+          <label class="field">
+            <span>Reply Email</span>
+            <input id="feedback-email" type="email" placeholder="Optional for 13+" autocomplete="email" disabled />
+          </label>
+          <div class="feedback-status" id="feedback-status">Feedback saves only when a backend endpoint is configured.</div>
+          <div class="cta-row compact-actions">
+            <button class="primary" id="feedback-submit" type="button">Submit Feedback</button>
+            <button class="ghost" id="feedback-cancel" type="button">Cancel</button>
           </div>
         </div>
       </div>
     </div>
 
-    <script type="module" src="script.js?v=20260518"></script>
+    <script type="module" src="script.js"></script>
   </body>
 </html>
