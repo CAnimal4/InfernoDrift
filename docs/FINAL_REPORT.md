@@ -4,7 +4,7 @@ Status: active work is the InfernoDrift4 static launch rescue. The current shipp
 
 ## URLs
 
-- Repo: https://github.com/CAnimal4/InfernoDrift4
+- Repo: https://github.com/CAnimal4/InfernoDrift
 - Pages target: https://canimal4.github.io/InfernoDrift/
 - Primary online backend mode: Firebase online-lite
 - Legacy Worker fallback/reference: wss://infernodrift4-online.clarkbythebay.workers.dev/ws
@@ -64,7 +64,7 @@ Latest Phase 3 local visual smoke:
 
 Latest Pages smoke:
 
-- `https://canimal4.github.io/InfernoDrift4/?v=eea9193b`: HTTP 200.
+- `https://canimal4.github.io/InfernoDrift/?v=eea9193b`: HTTP 200.
 - Served the static InfernoDrift4 game with `script.js`; no React/Vite bundle detected.
 - Browser smoke started Campaign Survival, verified the Phase 3 mode catalog, completed a Race result, confirmed Max Arena, and reported public modes as `campaign-survival` and `max-arena`. Console output contained only expected headless WebGL `ReadPixels` warnings.
 

@@ -6,7 +6,7 @@ Read this first when continuing InfernoDrift4 online/backend work from an older 
 
 Use this repo and this policy:
 
-- Work in `CAnimal4/InfernoDrift4`; the public game still deploys to `https://canimal4.github.io/InfernoDrift`.
+- Work in `CAnimal4/InfernoDrift`; the public game still deploys to `https://canimal4.github.io/InfernoDrift`.
 - Treat Firebase as the production online backend unless the owner explicitly asks for legacy Worker/WebSocket work.
 - Keep Cloudflare Workers as legacy fallback/import/reference only.
 - Do not use Replit for production and do not ask the owner to pay for Replit.

@@ -10,6 +10,14 @@ Original prompt: Implement the InfernoDrift4 revamp plan on top of the current I
 - Began routing Firebase feedback and `/report` through the existing HTTP feedback endpoint for email delivery attempts, while still saving online review copies.
 - Validation for this pass: `node --check script.js firebase-online.js smoke_games.mjs`, `node --test tests/firebase-online.test.mjs`, focused Playwright multiplayer check, `npm run typecheck`, `npm test`, `npm run build`, `npm run smoke`, `npm run smoke:firebase`, and `npm run smoke:firebase-live` passed. `npm run format` still reports broad existing Prettier drift across unrelated files.
 
+2026-05-28 mobile/tablet revamp pass:
+
+- Started the normal InfernoDrift4 mobile/tablet revamp before any Coolmath Games copy. Current focus is preserving desktop while making touch play first-class.
+- Added phone portrait rotation guidance, larger/safe-area-aware touch controls, touch pressed states, mode-aware touch labels, touch haptics/opacity/sensitivity settings, reduced motion/lower camera shake settings, and an Auto/Low/Medium/High mobile quality preset.
+- Mobile tutorial/help copy now switches to touch-specific prompts instead of keyboard-only WASD text when a touch profile is active.
+- Expanded `smoke_mobile.mjs` to cover phone landscape, phone portrait, tablet portrait, tablet landscape, small laptop, desktop, touch sizing, touch state, rotate prompt, Battle Laser, Max Boost/Hit label, and page errors.
+- Validation for this pass: `node --check script.js`, `node --check firebase-online.js`, `node --check firebase-online-core.js`, `node --check smoke_mobile.mjs`, local `node smoke_mobile.mjs`, local `node smoke_games.mjs`, `npm test`, `npm run typecheck`, `npm run build`, `npm run smoke`, `npm run test:e2e`, `npm run smoke:firebase`, `git diff --check`, and the shared `develop-web-game` Playwright client passed. Visual screenshots reviewed at `output/playwright/mobile-phone-landscape-game.png`, `mobile-phone-portrait-rotate.png`, `mobile-tablet-landscape-game.png`, `mobile-desktop-game.png`, and `output/web-game/shot-0.png`.
+
 2026-05-24 Firebase realtime sync repair:
 
 - Added a reliable Firebase DM inbox mirror under owner-scoped `dmInboxes/{uid}/messages/{messageId}` and listener so incoming DMs trigger the existing non-obstructive chat notice path; also added per-friend DM room listeners as a rules-compatible fallback when collection-group or inbox listeners are unavailable.
@@ -116,7 +124,7 @@ Original prompt: Implement the InfernoDrift4 revamp plan on top of the current I
 - Updated README and docs to stop overclaiming the rejected React/Vite build as the active launch surface and to keep hosted online explicitly blocked until Cloudflare deployment is verified.
 - Fixed the radar projection sign so objects in front of the car report as front/top, then added smoke assertions for front and car-left projections.
 - Verification passed: `node --check script.js`, `npm run typecheck`, `npm test`, `npm run build`, `npm run smoke`, `npm run test:e2e`, `npm run smoke:online-local`, `npm run format`, `npm run worker:check`, and `npm run worker:types`.
-- Pushed rescue commit `f5e23a7`; GitHub Actions CI, Pages deploy, and Pages build/deployment completed successfully. Production smoke at `https://canimal4.github.io/InfernoDrift4/?v=f5e23a7` served the static game and started Campaign Survival with no page errors.
+- Pushed rescue commit `f5e23a7`; GitHub Actions CI, Pages deploy, and Pages build/deployment completed successfully. Production smoke at `https://canimal4.github.io/InfernoDrift/?v=f5e23a7` served the static game and started Campaign Survival with no page errors.
 
 2026-05-16 Phase 2 UI/Garage pass:
 
@@ -140,7 +148,7 @@ Original prompt: Implement the InfernoDrift4 revamp plan on top of the current I
 - Extended `render_game_to_text()` and `__infernodriftTestApi` with public mode ids, mode catalog helpers, mode start/complete/fail helpers, progression snapshots, markers, track, ghost, battle pickup, hunter tag, and boss state.
 - Cleaned visible wording so public UI/docs/test state use `InfernoDrift4`, Campaign Survival, and Max Arena naming; old mode ids remain internal aliases only for save/test-selector compatibility.
 - Visual QA screenshots reviewed: `output/playwright/phase3-play-board.png`, `output/playwright/phase3-results.png`, and `output/playwright/mobile-landscape-smoke.png`.
-- Validation after Phase 3: `npm run format`, `npm run typecheck`, `npm test`, `npm run build`, `npm run smoke`, `npm run test:e2e`, `npm run smoke:online-local`, `npm run worker:check`, and `npm run worker:types` passed. Production smoke also passed against `https://canimal4.github.io/InfernoDrift4/?v=eea9193b`. Headless WebGL emitted expected SwiftShader `ReadPixels` warnings only.
+- Validation after Phase 3: `npm run format`, `npm run typecheck`, `npm test`, `npm run build`, `npm run smoke`, `npm run test:e2e`, `npm run smoke:online-local`, `npm run worker:check`, and `npm run worker:types` passed. Production smoke also passed against `https://canimal4.github.io/InfernoDrift/?v=eea9193b`. Headless WebGL emitted expected SwiftShader `ReadPixels` warnings only.
 
 2026-05-17 Phase 3 repair pass:
 
@@ -155,7 +163,7 @@ Original prompt: Implement the InfernoDrift4 revamp plan on top of the current I
 - Fixed thumbnail/card sizing so mode art uses square cells without stretch/crop and updated public smokes to assert removed modes are absent.
 - Visual QA reviewed latest screenshots: `output/playwright/phase3-play-board.png`, `phase3-battle-arena.png`, `phase3-race.png`, `phase3-stunt-park.png`, `phase3-ramp-rush.png`, `phase3-lava-floor.png`, `phase3-boost-bowling.png`, and `output/web-game/phase3-repair/shot-2.png`.
 - Validation after repair: `node --check script.js`, `node --check smoke_games.mjs`, `npm run format`, `npm run typecheck`, `npm test`, `npm run build`, `npm run smoke`, `npm run test:e2e`, `npm run smoke:online-local`, `npm run worker:check`, `npm run worker:types`, and the shared `develop-web-game` Playwright client passed. Headless WebGL emitted expected SwiftShader `ReadPixels` warnings only.
-- Follow-up deploy verification: pushed Phase 3 repair to `main`, confirmed GitHub Pages served the matching `script.js` bytes for the new build, and ran live `SMOKE_URL=https://canimal4.github.io/InfernoDrift4/?v=9cd0e26 node smoke_games.mjs` successfully. Online/Cloudflare work remains intentionally deferred until the later phase.
+- Follow-up deploy verification: pushed Phase 3 repair to `main`, confirmed GitHub Pages served the matching `script.js` bytes for the new build, and ran live `SMOKE_URL=https://canimal4.github.io/InfernoDrift/?v=9cd0e26 node smoke_games.mjs` successfully. Online/Cloudflare work remains intentionally deferred until the later phase.
 
 2026-05-17 Phase 3 repair follow-up:
 
