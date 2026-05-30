@@ -46,9 +46,8 @@ const port = await getFreePort();
 const build = spawnSync("npm", ["run", "build:web"], { stdio: "inherit" });
 if (build.status !== 0) process.exit(build.status ?? 1);
 const serveRoot = fs.mkdtempSync(path.join(os.tmpdir(), "id4-pages-smoke-"));
-const distRoot = path.join(process.cwd(), "dist");
-fs.symlinkSync(distRoot, path.join(serveRoot, "InfernoDrift"), "dir");
-fs.symlinkSync(distRoot, path.join(serveRoot, "InfernoDrift4"), "dir");
+const mount = path.join(serveRoot, "InfernoDrift4");
+fs.symlinkSync(path.join(process.cwd(), "dist"), mount, "dir");
 const contentTypes = {
   ".css": "text/css",
   ".html": "text/html",
