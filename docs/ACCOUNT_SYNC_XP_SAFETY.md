@@ -205,10 +205,10 @@ The deployed static clients were also smoke-tested with seeded bad local/account
 state and the runtime trust diagnostic enabled:
 
 ```bash
-SMOKE_URL='https://canimal4.github.io/InfernoDrift/?v=90bfe2c' \
+SMOKE_URL='https://canimal4.github.io/InfernoDrift4/?v=90bfe2c' \
   npm run smoke:account-xp:target
 
-SMOKE_URL='https://canimal4.github.io/InfernoDrift/?v=f28e066' \
+SMOKE_URL='https://canimal4.github.io/InfernoDrift4/?v=f28e066' \
   npm run smoke:account-xp:target
 ```
 
