@@ -2,7 +2,7 @@
 
 InfernoDrift4.1 is a polish-and-upgrade release of the restored InfernoDrift4 launch surface. The shipped game is still the root static `index.html`, `script.js`, and `style.css` experience, preserving the proven InfernoDrift4 feel instead of replacing it with the rejected React rewrite.
 
-Play: https://canimal4.github.io/InfernoDrift/
+Play: https://canimal4.github.io/InfernoDrift4/
 
 ## Current Launch Surface
 
